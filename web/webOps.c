@@ -24,8 +24,8 @@ size_t write_data(void * ptr, size_t size, size_t nmemb, void * stream)
 
 int main(int argc, char** argv){
 	memset(user_cookie, 0 , 500);
-	char username[] = "twl14";				//在这里输入你的用户名和密码来测试
-	char userpass[] = "7537c4b5";
+	char username[] = "";				//在这里输入你的用户名和密码来测试
+	char userpass[] = "";
 	if(web_get_cookie(username, userpass) != 0)
 		return -1;
 
