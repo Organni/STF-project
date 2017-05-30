@@ -22,7 +22,7 @@ size_t write_data(void * ptr, size_t size, size_t nmemb, void * stream)
 	return size * nmemb;
 }
 
-int main(int argc, char** argv){
+/*int main(int argc, char** argv){
 	memset(user_cookie, 0 , 500);
 	char username[] = "";				//在这里输入你的用户名和密码来测试
 	char userpass[] = "";
@@ -36,7 +36,7 @@ int main(int argc, char** argv){
 	int course_num = 0;
 	extract_courses(course_page, &user_courses, &course_num);
  	return 0;
-}
+}*/
 
 int web_get_cookie(char userid[], char userpass[]){
 	char URL[] = "https://learn.tsinghua.edu.cn/MultiLanguage/lesson/teacher/loginteacher.jsp";
@@ -75,10 +75,15 @@ int send_post(char URL[], char body[], char cookies[], char* content, char* head
  	// 设置属性 	
  	curl_easy_setopt(curl, CURLOPT_URL, URL);
  	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
- 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, content);   
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data); 
-	curl_easy_setopt(curl, CURLOPT_HEADERDATA, header);   
-	curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, write_data); 
+ 	if(content){
+ 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, content);   
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data); 	
+ 	}
+	if(header){
+		curl_easy_setopt(curl, CURLOPT_HEADERDATA, header);   
+		curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, write_data); 	
+	}
+	
 
 	if(cookies){
 
@@ -104,8 +109,10 @@ int send_get(char URL[], char cookies[], char* content, char* header){
  	// 设置属性 	
  	curl_easy_setopt(curl, CURLOPT_URL, URL);
  	curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
- 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, content);   
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data); 
+ 	if(content){
+ 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, content);   
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data); 	
+ 	}
 	if(header){
 		curl_easy_setopt(curl, CURLOPT_HEADERDATA, header);   
 		curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, write_data); 
@@ -236,6 +243,7 @@ int extract_courses(char *raw_html, struct course_info *info_list, int *info_num
 	*info_num = course_num;
 	return 0;
 }
+
 
 int string_find(const char *pSrc, const char *pDst)  
 {  
