@@ -1,2 +1,2 @@
 all : 
-	gcc webOps.c -o test2 -lcurl
+	gcc courDetail.c  webOps.c -o test2 -lcurl

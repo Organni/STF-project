@@ -1,19 +1,17 @@
-#include <curl/curl.h>
-#include <curl/easy.h>
-#include <stdio.h>
-#include <memory.h>
+
 #include "webOps.h"
 
 char user_cookie[500];
 
 struct course_info user_courses[50];
+int course_num;
 
 void set_cookie(char new_cookie[]){
 	memcpy(user_cookie, new_cookie, strlen(new_cookie));
 }
 
 char* get_cookie(){
-	return user_cookie;
+	return (char*) user_cookie;
 }
 
 size_t write_data(void * ptr, size_t size, size_t nmemb, void * stream)
@@ -33,8 +31,10 @@ size_t write_data(void * ptr, size_t size, size_t nmemb, void * stream)
 	memset(course_page, 0 , 50000);
 	get_course_page(course_page);
 
-	int course_num = 0;
 	extract_courses(course_page, &user_courses, &course_num);
+	int i = 0;
+	for(; i < course_num; i++)
+		printf("%s\n", user_courses[i].name);
  	return 0;
 }*/
 
@@ -50,7 +50,7 @@ int web_get_cookie(char userid[], char userpass[]){
 	strcat(body, userpass);
 	strcat(body, "&submiy1: 登录");
 
-	int res = send_post(URL, body, NULL, &content, &header);
+	int res = send_post(URL, body, NULL, content, header);
 	char cookies[500];
 	memset(cookies, 0, 500);
 	extract_cookies(header, cookies);
@@ -155,6 +155,43 @@ int get_course_page(char* page_content){
 	//printf("HEADER: %s\n",header);
 	//printf("CONTENT: %s\n",page_content);
 	return 0;
+}
+
+int send_download(char URL[], char cookies[], char* header, char* save_path){
+	CURL *curl = curl_easy_init();
+	if (NULL == curl)
+	{
+                  curl_global_cleanup(); 
+                  printf("cannot get a CURL\n");
+		return -1;
+	}
+	FILE* file = fopen(save_path,"w+");
+	if(file == NULL){
+		printf("[DownloadFail] cannot open file %s\n", save_path);
+		return -1;
+	}
+
+ 	// 设置属性 	
+ 	curl_easy_setopt(curl, CURLOPT_URL, URL);
+ 	curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
+
+ 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, file);   
+ 
+	if(header){
+		curl_easy_setopt(curl, CURLOPT_HEADERDATA, header);   
+		curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, write_data); 
+	}
+	
+	if(cookies){
+		curl_easy_setopt(curl, CURLOPT_COOKIE, cookies);
+	}
+
+	curl_easy_perform(curl);	
+	curl_easy_cleanup(curl);
+	fclose(file);
+	//printf("%s\n",header);
+	//printf("%s\n",content);
+ 	return 0;
 }
 
 /*

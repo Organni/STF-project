@@ -1,6 +1,11 @@
 #ifndef WEB_OPS
 #define WEB_OPS
 
+#include <curl/curl.h>
+#include <curl/easy.h>
+#include <stdio.h>
+#include <memory.h>
+
 struct course_info {
 	char name[255];		// 课程名称
 	int id;				// 课程id，在网页源代码的超链接中找它
@@ -24,6 +29,8 @@ int extract_cookies(char header[], char cookies[]);
 int extract_courses(char *raw_html, struct course_info *info_list, int *info_num);
 
 int send_get(char URL[], char cookies[], char* content, char* header);
+
+int send_download(char URL[], char cookies[], char* header, char* save_path);
 
 //find string in string, return the first start location or -1 if can not find
 int string_find(const char *pSrc, const char *pDst);
