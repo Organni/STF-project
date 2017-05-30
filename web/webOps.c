@@ -24,8 +24,8 @@ size_t write_data(void * ptr, size_t size, size_t nmemb, void * stream)
 
 int main(int argc, char** argv){
 	memset(user_cookie, 0 , 500);
-	char username[] = "";				//在这里输入你的用户名和密码来测试
-	char userpass[] = "";
+	char username[] = "twl14";				//在这里输入你的用户名和密码来测试
+	char userpass[] = "7537c4b5";
 	if(web_get_cookie(username, userpass) != 0)
 		return -1;
 
@@ -165,9 +165,95 @@ int extract_courses(char *raw_html, struct course_info *info_list, int *info_num
 
 	/*
 		YOUR  CODE  TO FILL THE LIST
+	struct course_info {
+	char name[255];		// 课程名称
+	int id;				// 课程id，在网页源代码的超链接中找它
+	int unhanded_work_num;	// 未交作业数
+	int unread_notice_num;		// 未读公告数
+	int new_file_num;		// 新文件数
+	};
 	*/
+	//printf("twl html: %s\n",raw_html);	
+	int head = 0;
+	int i=0,j=0;
+	int tail = 0;
+	char * p = raw_html;
+	head = string_find(p,"!--td");
+	while(head>=i)
+	{
+		
+		p = p+head;
+		//id   ?course_id=143823"
+		i = string_find(p,"course_id=")+10;
+		//printf("i= %d\n",i);
+		int id = 0;
+		while(p[i]!='\"')//遇到“id结束，可增加是否是数字的判断
+		{
+			id = id*10 + p[i] - '0';
+			i++ ;
+		}
+		temp_list[course_num].id = id;
+		//name   ="_blank">搜索引擎技术基础(0)(2016-2017春季学期)</a>
+		i = i + string_find(p+i,"target=\"_blank\">")+26;
+		//printf("i= %d\n",i);
+		j = i + string_find(p+i,"</a>");
+		memcpy(temp_list[course_num].name,p+i,j-i);
+		int n =0;
+		//未交作业数   ">1</span>个未交作业</td>
+		i = i + string_find(p+i,"个未交作业")-8;
+		//printf("i= %d\n",i);
+		n = p[i]-'0';
+		temp_list[course_num].unhanded_work_num = n;
+		//未读公告数   ">2</span>个未读公告</td
+		i = i + string_find(p+i,"个未读公告")-8;
+		//printf("i= %d\n",i);
+		n = p[i]-'0';
+		temp_list[course_num].unread_notice_num = n;
+		//新文件数     ">0</span>个新文件</td>
+		i = i + string_find(p+i,"个新文件")-8;
+		//printf("i= %d\n",i);
+		n = p[i]-'0';
+		temp_list[course_num].new_file_num = n;
+		
+		//printf("num: %d\n",course_num);
+		//printf("id: %d\n",temp_list[course_num].id);
+		//printf("name: %s\n",temp_list[course_num].name);
+		//printf("未交: %d\n",temp_list[course_num].unhanded_work_num);
+		//printf("未读: %d\n",temp_list[course_num].unread_notice_num);
+		//printf("新: %d\n",temp_list[course_num].new_file_num);
+		
+		
+		course_num++;
+		//tail += head;
+		//printf("tail %d\n",tail);
+		head = i + string_find(p+i,"!--td");
+		//printf("head %d\n",head);
 
+	}
+	
+	
 	memcpy(info_list, temp_list, sizeof(struct course_info)*course_num);
 	*info_num = course_num;
 	return 0;
 }
+
+int string_find(const char *pSrc, const char *pDst)  
+{  
+    char* ans = NULL;
+    int i, j;  
+    for (i=0; pSrc[i]!='\0'; i++)  
+    {  
+        if(pSrc[i]!=pDst[0])  
+            continue;         
+        j = 0;  
+        while(pDst[j]!='\0' && pSrc[i+j]!='\0')  
+        {  
+            j++;  
+            if(pDst[j]!=pSrc[i+j])  
+            break;  
+        }  
+        if(pDst[j]=='\0')
+			return i;
+	}  
+    return -1; 
+}  

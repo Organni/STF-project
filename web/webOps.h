@@ -25,4 +25,7 @@ int extract_courses(char *raw_html, struct course_info *info_list, int *info_num
 
 int send_get(char URL[], char cookies[], char* content, char* header);
 
+//find string in string, return the first start location or -1 if can not find
+int string_find(const char *pSrc, const char *pDst);
+
 #endif
