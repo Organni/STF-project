@@ -1,0 +1,17 @@
+#include <ghttp.h>
+#include <stdio.h>
+
+int main(int argc, char** argv){
+	ghttp_request *request = NULL;
+	request = ghttp_request_new();
+	ghttp_set_uri(request, "https://learn.tsinghua.edu.cn/MultiLanguage/lesson/teacher/loginteacher.jsp");
+	char body[] = "userid=2014011410;userpass=123456;";
+	ghttp_set_body(request,body,strlen(body));
+	ghttp_set_header(request, http_hdr_Connection, "close");
+	if (ghttp_set_type(request, ghttp_type_post) == -1)		//post
+		return -1;
+	ghttp_prepare(request);
+	ghttp_process(request);
+	fwrite(ghttp_get_body(request), ghttp_get_body_len(request), 1, stdout);
+	ghttp_request_destroy(request);
+}
