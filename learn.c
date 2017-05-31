@@ -32,6 +32,13 @@
 #include <assert.h>
 
 #include <string.h>
+#include <curl/curl.h>
+#include <curl/easy.h>
+#include "web/webOps.h"
+#include "web/courDetail.h"
+//#include <dirent.h>
+#include <errno.h>
+#include <sys/stat.h>
 
 /*
  * Command line options
@@ -47,6 +54,27 @@ char userBuf[200];
 int userBufLen;
 char userid[20];
 char userpass[50];
+
+int courNum;
+char **courName;
+char *courInfo;
+int infoLen;
+
+int test;
+char *testBuf;
+
+int noticeNum;
+char **noticeTitle;
+int *noticeStatus;
+int *noticeContent;
+
+int fileNum;
+char **fileTitle;
+char *fileInfo;
+int *fileStatus;
+char **fileName;
+int downloadWords;
+
 
 static struct options {
 	const char *filename;
@@ -70,7 +98,41 @@ static void *learn_init(struct fuse_conn_info *conn,
 	(void) conn;
 	cfg->kernel_cache = 1;
 	//test[0] = '0'; test[1] = '\0';
-	login = 0;
+	//login = 0;
+	courNum = 2;
+	courName = malloc(sizeof(char*)*2);
+	courName[0] = "cour0Name";
+	courName[1] = "cour1Name";
+	courInfo = "未交作业数：n\n未读公告数：n\n新文件数：n\n";
+
+	noticeNum = 2;
+	noticeTitle = malloc(sizeof(char*)*2);
+	noticeTitle[0] = "notice0title";
+	noticeTitle[1] = "notice1title";
+	noticeStatus = malloc(sizeof(int)*2);
+	noticeStatus[0] = 0;//unread
+	noticeStatus[1] = 1;
+	noticeContent = "发布时间：一分钟后\n发布者：一只兔子\n内容：\nbalabala";
+	
+	fileNum = 2;
+	fileTitle = malloc(sizeof(char*)*2);
+	fileTitle[0] = "file0name";
+	fileTitle[1] = "file1name";
+	fileInfo = "简要说明：潍坊的爱\n文件大小：666K\n上载时间：公元前";
+	fileStatus = malloc(sizeof(int)*2);
+	fileStatus[0] = 0;//new file
+	fileStatus[1] = 1;
+	fileName = malloc(sizeof(char*)*2);
+	fileName[0] = "song0word";
+	fileName[1] = "song1word";
+	downloadWords = 0;
+
+	infoLen = strlen(courInfo);
+	test = 0;
+	testBuf = "output:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+	login = 1;
+	for(int i = 0; i < courNum; i++)
+		mkdir(courName[i], S_IFDIR | 0755);
 	return NULL;
 }
 
@@ -79,22 +141,79 @@ static int learn_getattr(const char *path, struct stat *stbuf,
 {
 	(void) fi;
 	int res = 0;
-
+	char* off;
 	memset(stbuf, 0, sizeof(struct stat));
 	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
-	} else if (strcmp(path+1, options.filename) == 0) {
+	}/* else if (strcmp(path+1, options.filename) == 0) {
 		stbuf->st_mode = S_IFREG | 0444;
 		stbuf->st_nlink = 1;
 		stbuf->st_size = strlen(options.contents);
-	} else if (strcmp(path+1, "login") == 0) {
+	} */else if (strcmp(path+1, "login") == 0) {
 		stbuf->st_mode = S_IFREG | 0666;
 		stbuf->st_nlink = 1;
 		stbuf->st_size = userBufLen;
+	} /*else {
+		return lstat(path, stbuf);
+	}*/
+	 else if (strstr(path+1,"/") == NULL) {
+		stbuf->st_mode = S_IFDIR | 0755;
+		stbuf->st_nlink = 1;
 	}
-	else
-		res = -ENOENT;
+	 else if (strstr(path+1,"课程信息") != NULL) {
+		stbuf->st_mode = S_IFREG | 0444;
+		stbuf->st_nlink = 1;
+		stbuf->st_size = infoLen;
+	} else {
+		off = strstr(path+1,"/");
+		if(strstr(off+1, "/") == NULL) {
+			stbuf->st_mode = S_IFDIR | 0755;
+			stbuf->st_nlink = 1;
+		}
+		else {
+			if(strstr(off+1, "-未读") != NULL
+				|| strstr(off+1, "-已读") != NULL)
+			{
+				stbuf->st_mode = S_IFREG | 0444;
+				stbuf->st_nlink = 1;
+				stbuf->st_size = strlen(noticeContent);
+			} else {
+				off = strstr(off+1,"/");
+				if(strstr(off+1,"/") == NULL) {
+					stbuf->st_mode = S_IFDIR | 0755;
+					stbuf->st_nlink = 1;
+				} else if(strstr(off+1, "文件信息") != NULL) {
+					stbuf->st_mode = S_IFREG | 0444;
+					stbuf->st_nlink = 1;
+					stbuf->st_size = strlen(fileInfo);
+					for(int i = 0; i < fileNum; i ++)
+					if(strstr(path, fileTitle[i]) != NULL)
+					{
+						if(fileStatus[i] == 0)
+							stbuf->st_size += strlen("\n新文件");
+						break;
+					}
+				} else {
+					stbuf->st_mode = S_IFREG | 0444;
+					stbuf->st_nlink = 1;
+					stbuf->st_size = downloadWords;
+				}
+			}
+			
+		}
+	}
+/*	if((off = strstr(path+1,"/") ==)) {
+		stbuf->st_mode = S_IFDIR | 0755;
+		stbuf->st_nlink = 1;
+	}	else {
+		stbuf->st_mode = S_IFREG | 0444;
+		stbuf->st_nlink = 1;
+		stbuf->st_size = 1;
+	}*/
+
+	/*else
+		res = -ENOENT;*/
 
 	return res;
 }
@@ -107,18 +226,68 @@ static int learn_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	(void) fi;
 	(void) flags;
 
-	if (strcmp(path, "/") != 0)
-		return -ENOENT;
+	/*options.contLen = strlen(path);
+	memset(options.contents, path, options.contLen);
+	options.contents[options.contLen] = '\0';*/
+	
+	//memcpy(options.contents+7,path,strlen(path));
 
 	filler(buf, ".", NULL, 0, 0);
 	filler(buf, "..", NULL, 0, 0);
-	filler(buf, options.filename, NULL, 0, 0);
+	//filler(buf, options.filename, NULL, 0, 0);
+	//filler(buf, testBuf, NULL, 0, 0);
 
-	if(!login) {
-		filler(buf, "login", NULL, 0, 0);
-	}
+	char *off;
+	if(strcmp(path,"/") == 0)
+	{
+		if(!login) {
+			filler(buf, "login", NULL, 0, 0);
+		} else {
+			for(int i = 0; i < courNum; i++)
+				filler(buf, courName[i], NULL, 0, 0);
+		}
+	} else if(strstr(path+1,"/") == NULL){
+		filler(buf, "课程信息", NULL, 0, 0);
+		filler(buf, "公告", NULL, 0, 0);
+		filler(buf, "文件", NULL, 0, 0);
+		filler(buf, "作业", NULL, 0, 0);
+	} else if(strstr(path+1,"公告") != NULL) {
+		for(int i = 0; i < noticeNum; i++) {
+			char title[120];
+			strcpy(title, noticeTitle[i]);
+			if(noticeStatus[i] == 0)
+				strcat(title, "-未读");
+			else
+				strcat(title, "-已读");
+			filler(buf, title, NULL, 0, 0);
+		}
+	} else {
+		off = strstr(path+1,"/");
+		if(strstr(off+1,"/") == NULL) {
+			for(int i = 0; i < fileNum; i++)
+				filler(buf, fileTitle[i], NULL, 0, 0);
+		} else {
+			filler(buf, "文件信息", NULL, 0, 0);
+			for(int i = 0; i < fileNum; i++) {
+				if(strstr(path, fileTitle[i]) != NULL)
+				{
+					char name[100];
+					strcpy(name, fileName[i]);
+					if(downloadWords == 0)
+						strcat(name, "-未下载");
+					filler(buf, name, NULL, 0, 0);
+					break;
+				}
+			}
+		}
+
+	} 
+
+	
+	
 	//test[0] ++;
 	//filler(buf, test, NULL, 0, 0);
+	//return -ENOENT;
 
 	return 0;
 }
@@ -128,12 +297,12 @@ static int learn_open(const char *path, struct fuse_file_info *fi)
 	if (strcmp(path+1, options.filename) == 0)
 	{
 		if ((fi->flags & O_ACCMODE) != O_RDONLY)
-		return -EACCES;
-	} else if(strcmp(path+1, "login") == 0)
+			return -EACCES;
+	}/* else if(strcmp(path+1, "login") == 0)
 	{
 
 	} else
-		return -ENOENT;
+		return -ENOENT;*/
 
 	
 	return 0;
@@ -144,7 +313,9 @@ static int learn_read(const char *path, char *buf, size_t size, off_t offset,
 {
 	size_t len;
 	(void) fi;
-	if(strcmp(path+1, options.filename) == 0)
+	//size = 0;
+	/*if((strcmp(path+1, options.filename) == 0 )
+		|| strstr(path, options.filename) != NULL)
 	{
 		len = strlen(options.contents);
 		if (offset < len) {
@@ -153,13 +324,39 @@ static int learn_read(const char *path, char *buf, size_t size, off_t offset,
 			memcpy(buf, options.contents + offset, size);
 		} else
 			size = 0;
-	} else if (strcmp(path+1,"login") == 0)
-	{
+	} else */if (strcmp(path+1,"login") == 0) {
 		memcpy(buf, userBuf, userBufLen);
 		size = userBufLen;
-	} else 
+	} else if (strstr(path, "课程信息") != NULL) {
+		size = infoLen;
+		memcpy(buf, courInfo, size);
+		//return -ENOENT;
+	} else if(strstr(path, "文件信息") != NULL) {
+		char info[500];
+		strcpy(info,fileInfo);
+		for(int i = 0; i < fileNum; i ++)
+			if(strstr(path, fileTitle[i]) != NULL)
+			{
+				if(fileStatus[i] == 0)
+					strcat(info,"\n新文件");
+				break;
+			}
+		size = strlen(info);
+		memcpy(buf, info, size);
+	} else if(strstr(path, "-未下载") != NULL) {
+		char *text; text = "file content download from learn";
+		size = strlen(text);
+		memcpy(buf, text, size);
+		downloadWords = size;
+	} else if(strstr(path, "-未读") != NULL
+				|| strstr(path, "-已读") != NULL)
 	{
-		return -ENOENT;
+		size = strlen(noticeContent);
+		memcpy(buf, noticeContent, size);
+	} else {
+		char *text; text = "file content download from learn";
+		size = strlen(text);
+		memcpy(buf, text, size);
 	}
 	return size;
 }
@@ -189,14 +386,48 @@ static int learn_truncate(const char *path, off_t size, struct fuse_file_info *f
 
 static int learn_flush(const char *path, struct fuse_file_info *fi)
 {
-	if(strcmp(path+1,"login") != 0)
-		return -1;
+	if(strcmp(path+1,"login") == 0)
+	{
+		login = 1;
+		for(int i = 0; i < courNum; i++)
+			mkdir(courName[i], S_IFDIR | 0755);
+		/*if(chdir("..")==-1)
+		{
+			char* info = "Couldn't change current working directory.";
+			userBufLen = strlen(info);
+			memcpy(userBuf, info, userBufLen);
+		}
+		else{
+			char* info = "changed current working directory.";
+			userBufLen = strlen(info);
+			memcpy(userBuf, info, userBufLen);
+		}*/
+	}	
 	/*userBufLen = strlen(userid);
 	memcpy(userBuf, userid, userBufLen);*/
-	userBufLen = strlen(userpass);
-	memcpy(userBuf, userpass, userBufLen);
+	/*userBufLen = strlen(userpass);
+	memcpy(userBuf, userpass, userBufLen);*/
 	return 0;
 }
+
+/*int learn_opendir(const char *path, struct fuse_file_info *fi)
+{
+	char tpath[100];
+	strcpy(tpath,"/home/mlf/桌面/fuse-3.0.2/build/example/STF-project");
+	strcat(tpath, path);
+	return opendir(tpath);
+}*/
+
+/*static int learn_mkdir(const char *path, mode_t mode)
+{
+	int res;
+
+	res = mkdir(path, mode);
+	if (res == -1)
+		return -errno;
+
+	return 0;
+}*/
 
 static struct fuse_operations learn_oper = {
 	.init           = learn_init,
@@ -206,7 +437,9 @@ static struct fuse_operations learn_oper = {
 	.read		= learn_read,
 	.write		= learn_write,
 	.truncate   = learn_truncate,
-	.flush		= learn_flush
+	.flush		= learn_flush,/*
+	.opendir	= learn_opendir,
+	.mkdir		= learn_mkdir*/
 };
 
 static void show_help(const char *progname)
@@ -228,7 +461,7 @@ int main(int argc, char *argv[])/**/
 	   fuse_opt_parse can free the defaults if other
 	   values are specified */
 	options.filename = strdup("learn");
-	options.contents = strdup("learn World!\n");
+	options.contents = strdup("hello,world!\n");
 
 	/* Parse options */
 	if (fuse_opt_parse(&args, &options, option_spec, NULL) == -1)
@@ -244,6 +477,8 @@ int main(int argc, char *argv[])/**/
 		assert(fuse_opt_add_arg(&args, "--help") == 0);
 		args.argv[0] = (char*) "";
 	}
+
+	//CURL *curl = curl_easy_init();
 
 	return fuse_main(args.argc, args.argv, &learn_oper, NULL);
 }
