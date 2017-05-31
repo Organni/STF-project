@@ -33,7 +33,7 @@ int get_notice_page(int course_id, char* notice_page){
 int get_notice_detail_page(int course_id, int notice_id, char *detail_page){
 	char URL[256] = "http://learn.tsinghua.edu.cn/MultiLanguage/public/bbs/note_reply.jsp?bbs_type=课程公告&id=";
 	char num_str[50];
-	char content[5000];
+	char content[50000];
 	memset(content,0,sizeof(content));
 	sprintf(num_str, "%d", notice_id);
 	strcat(URL, num_str);
@@ -137,7 +137,7 @@ int extract_notice_list(char* raw_html, int course_id, struct course_notice *not
 		memcpy(temp_list[course_notice_num].status,p+i,j-i);
 		//content
 		
-		get_notice_detail_page(course_id, id, &temp_list[course_notice_num].content);
+		//get_notice_detail_page(course_id, id, &temp_list[course_notice_num].content);
 		
 		
 		//printf("num: %d\n",course_notice_num);
@@ -157,10 +157,12 @@ int extract_notice_list(char* raw_html, int course_id, struct course_notice *not
 
 	}
 	
-	//printf("end\n");
+
 	
 	memcpy(notice_list, temp_list, sizeof(struct course_notice)*course_notice_num);
 	*notice_num = course_notice_num;
+	
+	printf("detail content unsolved !return\n\n\n");
 	
 	return 0;
 }
@@ -190,6 +192,140 @@ int get_file_page(int course_id, char*page_buff){
 */
 int extract_file_lists(char* raw_html, struct file_list *f_list, int* list_num){
 
+/*
+	struct file_list
+	{
+		char name[20];
+		int file_num;
+		struct course_file files[100];
+	};
+*/
+
+	//printf("begin file list\n");
+	struct file_list  temp_list[10];
+	memset(&temp_list, 0, sizeof(struct file_list)*10);
+	int file_list_num = 0; 
+	
+	int head = 0;
+	int i=0,j=0;
+	//int tail = 0;
+	char * p = raw_html;
+	for( i=0;i<3;i++ )
+	{
+		head = string_find(p,"NN_showImage"); //以“NN_showImage”作为公告标识
+		p = p+head+12;
+	}
+	head = string_find(p,"NN_showImage");	
+	i=0;
+	while(head>=i)	//获取列表标题、文件列表数
+	{
+		p = p+head+12;
+		//name   NN_showImage(3,2)">参考资料</td>
+		i = string_find(p,")\">")+3;
+		j = i + string_find(p+i,"</td");
+		if(j-i>19)	printf("name too long");
+		memcpy(temp_list[file_list_num].name,p+i,j-i);
+		//printf("name: %s\n",temp_list[file_list_num].name);
+		file_list_num++;
+		head = i + string_find(p+i,"NN_showImage");
+		
+	}
+	*list_num = file_list_num;
+	
+	
+	int k=0;
+	for(k=0;k<file_list_num;k++) //对每一个文件列表获取内容
+	{
+		/*
+		struct course_file{
+			int file_id;		// 非必要
+			char title[100];
+			char intro[255];
+			char file_size[20];
+			char upload_time[20];
+			char status[50];
+			char file_path[100];	// 查看文件标题对应的超链接可以得到
+		};
+		*/
+	
+		int course_file_num = 0; 
+		int flag = 0;
+		i=0;
+		head = string_find(p,"<table"); //以“table”作为列表开始标识
+		head = head + string_find(p+head,"状态")+2;
+		head = head + string_find(p+head,"href"); 
+		flag = head + string_find(p+head,"</table");
+		
+		//printf("%d\n",k);
+		//printf("flag: %d\n",flag);
+		
+		while(head>=i && head<flag )
+		{
+			p = p+head+5;
+			flag = flag - head -5;
+			i=0;
+			int t=0;
+			//file_id   
+			temp_list[k].files[course_file_num].file_id = course_file_num+1;
+			//printf("num: %d\n",course_file_num);
+			//file_path
+			i = i + string_find(p+i,"href=")+6;
+			j = i + string_find(p+i,"\"");
+			memcpy(temp_list[k].files[course_file_num].file_path,p+i,j-i);
+			//printf("path: %s\n",temp_list[k].files[course_file_num].file_path);
+			//printf("i= %d\n",i);
+			//title 	id=1740355" >讲稿01     </a>
+			i = i + string_find(p+i,">")+1;
+			j = i + string_find(p+i,"</a>");
+			memcpy(temp_list[k].files[course_file_num].title,p+i,j-i);
+			//printf("title before trim: %s\n",temp_list[k].files[course_file_num].title);
+			string_trim(temp_list[k].files[course_file_num].title); //去除空格
+			//printf("title: %s\n",temp_list[k].files[course_file_num].title);
+			//printf("i= %d\n",i);
+			//intro   center">数学实验与建模概述</td>
+			i = i + string_find(p+i,"<td")+3;
+			i = i + string_find(p+i,">")+1;
+			j = i + string_find(p+i,"</td");
+			memcpy(temp_list[k].files[course_file_num].intro,p+i,j-i);
+			//printf("intro: %s\n",temp_list[k].files[course_file_num].intro);
+			//printf("i= %d\n",i);
+			//file_size   同上
+			i = i + string_find(p+i,"<td")+3;
+			i = i + string_find(p+i,">")+1;
+			j = i + string_find(p+i,"</td");
+			memcpy(temp_list[k].files[course_file_num].file_size,p+i,j-i);
+			//printf("size: %s\n",temp_list[k].files[course_file_num].file_size);
+			//printf("i= %d\n",i);
+			//time    同上
+			i = i + string_find(p+i,"<td")+3;
+			i = i + string_find(p+i,">")+1;
+			j = i + string_find(p+i,"</td");
+			memcpy(temp_list[k].files[course_file_num].upload_time,p+i,j-i);
+			//printf("time: %s\n",temp_list[k].files[course_file_num].upload_time);
+			//printf("i= %d\n",i);
+			//status    同上
+			i = i + string_find(p+i,"<td")+3;
+			i = i + string_find(p+i,">")+1;
+			j = i + string_find(p+i,"</td");
+			memcpy(temp_list[k].files[course_file_num].status,p+i,j-i);
+			string_trim(temp_list[k].files[course_file_num].status);
+			//printf("status: %s\n",temp_list[k].files[course_file_num].status);
+			
+		
+			course_file_num++;
+
+			head = i + string_find(p+i,"href");
+			//printf("head %d\n",head);
+		}
+		
+		p = p + flag;
+		
+		temp_list[k].file_num = course_file_num;
+	}
+	
+	memcpy(f_list, temp_list, sizeof(struct file_list)*file_list_num);
+
+	//printf("file_list end\n");
 	return 0;
 }
 
@@ -279,6 +415,22 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 	return 0;
 }
 
+//去除字符串中的空格、换行
+void string_trim(char * pStr)
+{
+	char *pTmp = pStr;  
+      
+    while (*pStr != '\0')   
+    {  
+        if (*pStr != ' ' && *pStr != '\t' && *pStr != '\n' )  
+        {  
+            *pTmp++ = *pStr;  
+        }  
+        ++pStr;  
+    }  
+    *pTmp = '\0';
+}
+
 int main(int argc, char** argv){
 	char username[] = "";		//在这里输入你的用户名和密码来测试
 	char userpass[] = "";
@@ -288,7 +440,7 @@ int main(int argc, char** argv){
 	char page_buff [200000];
 
 	//测试通知提取
-	int course_id = 143187;				//使用你的课程序号
+	int course_id = 142241;				//使用你的课程序号
 	get_notice_page(course_id, page_buff);
 	struct course_notice notice_list[100];
 	int notice_num = 0;
@@ -303,11 +455,14 @@ int main(int argc, char** argv){
 	get_file_page(course_id, page_buff);
 	extract_file_lists(page_buff, f_list, &list_num);
 
+ 
 	//测试课程文件下载
-	course_id = 143812;
+	course_id = 142241;
 	int file_id = 17407;
 	char file_path[] = "pQBMevczBtpsZni82CpX7BZk9vHu/lvu9f/HBuhd9TjwRGPdtG/JM%2BmEypmvASL8Opb9znfBqtM%3D";
 	download_course_file(course_id, file_id, file_path, "课程说明");
+	
+/*
 
 	//测试作业详情页面
 	int work_id = 744673;
@@ -322,6 +477,6 @@ int main(int argc, char** argv){
 	struct homework work_list[50];
 	int work_num = 0;
 	extract_homework_list(page_buff, work_list, &work_num);
-	
+	 */
 	return 0;
 }
