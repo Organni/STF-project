@@ -1,0 +1,11 @@
+课程公告：
+公告详细内容的提取未处理，主要问题是存在多段内容，不同字体的公告内容去掉标签信息很麻烦
+
+课程文件：
+当前版本courDetail.c的ex_file_lists函数
+283行像这样
+printf("title: %s\n",temp_list[k].files[course_file_num].title);
+输出文件标题时，不会输出“title：”
+输出英文标题时，空格会变成&nbsp
+
+ 

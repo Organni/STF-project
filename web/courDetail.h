@@ -19,8 +19,8 @@ struct course_file{
 	char intro[255];
 	char file_size[20];
 	char upload_time[20];
-	char status[20];
-	char file_path[100];	// 查看文件标题对应的超链接可以得到
+	char status[50];
+	char file_path[255];	// 查看文件标题对应的超链接可以得到
 };
 
 struct file_list
@@ -53,5 +53,7 @@ int extract_notice_list(char* notice_list_page, int course_id,struct course_noti
 int download_course_file(int course_id, int file_id, char* file_path, char* save_path);
 
 int get_homework_page(int course_id, char* page_buff);
+
+void string_trim(char* pStr);
 
 #endif
