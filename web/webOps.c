@@ -220,7 +220,7 @@ int extract_courses(char *raw_html, struct course_info *info_list, int *info_num
 	//printf("twl html: %s\n",raw_html);	
 	int head = 0;
 	int i=0,j=0;
-	int tail = 0;
+	//int tail = 0;
 	char * p = raw_html;
 	head = string_find(p,"!--td");
 	while(head>=i)

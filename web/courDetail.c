@@ -33,15 +33,22 @@ int get_notice_page(int course_id, char* notice_page){
 int get_notice_detail_page(int course_id, int notice_id, char *detail_page){
 	char URL[256] = "http://learn.tsinghua.edu.cn/MultiLanguage/public/bbs/note_reply.jsp?bbs_type=课程公告&id=";
 	char num_str[50];
+	char content[5000];
+	memset(content,0,sizeof(content));
 	sprintf(num_str, "%d", notice_id);
 	strcat(URL, num_str);
 	strcat(URL, "&course_id=" );
 	sprintf(num_str, "%d", course_id);
 	strcat(URL, num_str);
-	printf("%s\n", URL);
-	send_get(URL, get_cookie(), detail_page, NULL);
-	printf("CONTENT:%s\n",detail_page);
-
+	//printf("%s\n", URL);
+	send_get(URL, get_cookie(),content, NULL);
+	int i=0,j=0;
+	i = string_find(content,">正文<")+4;
+	i = i + string_find(content+i,"<td")+3;
+	i = i + string_find(content+i,">")+1;
+	j = i + string_find(content+i,"</td");
+	memcpy(detail_page,content+i,j-i);
+	//printf("CONTENT:%s\n",detail_page);
 	return 0;
 }
 
@@ -59,7 +66,102 @@ int extract_notice_list(char* raw_html, int course_id, struct course_notice *not
 	当你拿到通知的id后，使用下面的代码获取含有正文的网页,并进一步从中提取正文
 	char content_page[50000];
 	get_notice_detail_page(course_id, notice_id, &content_page);
+	
+		YOUR  CODE  TO FILL THE LIST
+		struct course_notice{
+		int notice_id;
+		char title[100];		
+		char publisher[20];	
+		char time[20];
+		char status[20];
+		char content[2000];
+		};
 	*/
+	//printf("twl html: %s\n",raw_html);
+	struct course_notice  temp_list[50];
+	memset(&temp_list, 0, sizeof(struct course_notice)*50);
+	int course_notice_num = 0; //本来应该用 notice_num比较好，但是已经被用了，
+	
+	int head = 0;
+	int i=0,j=0;
+	//int tail = 0;
+	char * p = raw_html;
+	head = string_find(p,"课程公告"); //以“课程公告”作为公告标识
+	while(head>=i)
+	{
+		p = p+head;
+		//id   课程公告&id=2026620&course_id=143187'>
+		i = string_find(p,"&id=")+4;
+		//printf("i= %d\n",i);
+		int id = 0;
+		while(p[i]!='&')//遇到‘&’表示id结束，可增加是否是数字的判断
+		{
+			id = id*10 + p[i] - '0';
+			i++ ;
+		}
+		temp_list[course_notice_num].notice_id = id;
+		//course_id
+		i = i + string_find(p+i,"course_id")+10;
+		int course_id = 0;
+		while(p[i]!='\'')//遇到‘'’表示id结束，可增加是否是数字的判断
+		{
+			course_id = course_id*10 + p[i] - '0';
+			i++ ;
+		}
+		
+		//title 	course_id=143187'><font color=red>大作业说明2</font></a> || course_id=143187'>实验三已发布</a>
+		i = i + string_find(p+i,">")+1;
+		if( p[i]=='<' )
+			i = i+string_find(p+i,">")+1;
+		//printf("i= %d\n",i);
+		j = i + string_find(p+i,"</");
+		memcpy(temp_list[course_notice_num].title,p+i,j-i);
+		//publisher   height=25>柴成亮</td>
+		i = i + string_find(p+i,"<td")+3;
+		i = i + string_find(p+i,">")+1;
+		j = i + string_find(p+i,"</td");
+		//printf("i= %d\n",i);
+		memcpy(temp_list[course_notice_num].publisher,p+i,j-i);
+
+		//time   同上
+		i = i + string_find(p+i,"<td")+3;
+		i = i + string_find(p+i,">")+1;
+		j = i + string_find(p+i,"</td");
+		//printf("i= %d\n",i);
+		memcpy(temp_list[course_notice_num].time,p+i,j-i);
+		//status     同上
+		i = i + string_find(p+i,"<td")+3;
+		i = i + string_find(p+i,">")+1;
+		j = i + string_find(p+i,"</td");
+		//printf("i= %d\n",i);
+		memcpy(temp_list[course_notice_num].status,p+i,j-i);
+		//content
+		
+		get_notice_detail_page(course_id, id, &temp_list[course_notice_num].content);
+		
+		
+		//printf("num: %d\n",course_notice_num);
+		//printf("id: %d\n",temp_list[course_notice_num].notice_id);
+		//printf("title: %s\n",temp_list[course_notice_num].title);
+		//printf("publisher: %s\n",temp_list[course_notice_num].publisher);
+		//printf("time: %s\n",temp_list[course_notice_num].time);
+		//printf("status: %s\n",temp_list[course_notice_num].status);
+		//printf("content: %s\n",temp_list[course_notice_num].content);
+		
+		
+		course_notice_num++;
+		//tail += head;
+		//printf("tail %d\n",tail);
+		head = i + string_find(p+i,"课程公告");
+		//printf("head %d\n",head);
+
+	}
+	
+	//printf("end\n");
+	
+	memcpy(notice_list, temp_list, sizeof(struct course_notice)*course_notice_num);
+	*notice_num = course_notice_num;
+	
 	return 0;
 }
 
@@ -186,7 +288,7 @@ int main(int argc, char** argv){
 	char page_buff [200000];
 
 	//测试通知提取
-	int course_id = 143812;				//使用你的课程序号
+	int course_id = 143187;				//使用你的课程序号
 	get_notice_page(course_id, page_buff);
 	struct course_notice notice_list[100];
 	int notice_num = 0;
@@ -220,5 +322,6 @@ int main(int argc, char** argv){
 	struct homework work_list[50];
 	int work_num = 0;
 	extract_homework_list(page_buff, work_list, &work_num);
+	
 	return 0;
 }
