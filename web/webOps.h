@@ -35,4 +35,8 @@ int send_download(char URL[], char cookies[], char* header, char* save_path);
 //find string in string, return the first start location or -1 if can not find
 int string_find(const char *pSrc, const char *pDst);
 
+void keep_alive_thread();
+
+void log_out();
+
 #endif

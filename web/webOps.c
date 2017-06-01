@@ -1,7 +1,9 @@
 
 #include "webOps.h"
+#define  KEEP_ALIVE_INTERVAL 1000
+#define COOKIE_LENGTH 500
 
-char user_cookie[500];
+char user_cookie[COOKIE_LENGTH];
 
 struct course_info user_courses[50];
 int course_num;
@@ -302,3 +304,25 @@ int string_find(const char *pSrc, const char *pDst)
 	}  
     return -1; 
 }  
+
+/*创建keep_alive线程，每隔一定时间更新cookie
+*/
+void keep_alive(char *userid, char* userpass){
+	if(fork() == 0){
+		while(login == 1){
+			sleep(KEEP_ALIVE_INTERVAL);
+			if(web_get_cookie(userid, userpass) != 0){
+				fprintf(log_file, "[COOKIE FAILURE]更新cookie失败\n");
+				fflush(log_file);
+				return;
+			}
+		}
+	}
+}
+
+void log_out(){
+	if(login == 1){
+		login = 0;
+		memset(user_cookie, 0, COOKIE_LENGTH);
+	}
+}
