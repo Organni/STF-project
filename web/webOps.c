@@ -186,12 +186,15 @@ int send_download(char URL[], char cookies[], char* header, char* save_path){
                   printf("cannot get a CURL\n");
 		return -1;
 	}
+	fprintf(log_file, "[DOWNLOADING]0ok\n");
+	fflush(log_file);
 	FILE* file = fopen(save_path,"w+");
 	if(file == NULL){
 		printf("[DownloadFail] cannot open file %s\n", save_path);
 		return -1;
 	}
-
+	fprintf(log_file, "[DOWNLOADING]1ok\n");
+	fflush(log_file);
  	// 设置属性 	
  	curl_easy_setopt(curl, CURLOPT_URL, URL);
  	curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
@@ -206,7 +209,8 @@ int send_download(char URL[], char cookies[], char* header, char* save_path){
 	if(cookies){
 		curl_easy_setopt(curl, CURLOPT_COOKIE, cookies);
 	}
-
+	fprintf(log_file, "[DOWNLOADING]2ok\n");
+	fflush(log_file);
 	curl_easy_perform(curl);	
 	curl_easy_cleanup(curl);
 	fclose(file);

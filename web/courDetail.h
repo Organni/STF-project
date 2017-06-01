@@ -22,6 +22,8 @@ struct course_file{
 	char upload_time[20];
 	char status[50];
 	char file_path[255];	// 查看文件标题对应的超链接可以得到
+	int download_flag;
+	char save_path[255];
 };
 
 struct file_list

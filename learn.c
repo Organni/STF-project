@@ -62,13 +62,6 @@ char userpass[50];
 
 int courInfoLen[courNumMax];
 
-int test;
-char *testBuf;
-
-int fileNum;
-char **fileTitle;
-char *fileInfo;
-int *fileStatus;
 char **fileName;
 int downloadWords;
 
@@ -83,6 +76,11 @@ int noticeLen = strlen("发布者：\n发布时间：\n内容：\n");
 
 struct file_list file_lists[courNumMax][5];
 int file_list_num[courNumMax];
+int fileInfoLen = strlen("简要说明：\n文件大小：\n上载时间：");
+char *defaultDownloadPath;
+
+int homework_list_num[courNumMax];
+struct homework h_list[courNumMax][50];
 
 static struct options {
 	const char *filename;
@@ -110,21 +108,12 @@ static void *learn_init(struct fuse_conn_info *conn,
 	sprintf(userBuf,"malf14\ntest12138password\n请将上述两个标签替换为您的学号和密码");
 	userBufLen = strlen(userBuf);
 	
-	fileNum = 2;
-	fileTitle = malloc(sizeof(char*)*2);
-	fileTitle[0] = "file0name";
-	fileTitle[1] = "file1name";
-	fileInfo = "简要说明：潍坊的爱\n文件大小：666K\n上载时间：公元前";
-	fileStatus = malloc(sizeof(int)*2);
-	fileStatus[0] = 0;//new file
-	fileStatus[1] = 1;
 	fileName = malloc(sizeof(char*)*2);
 	fileName[0] = "song0word";
 	fileName[1] = "song1word";
 	downloadWords = 0;
+	defaultDownloadPath = "/home/mlf/桌面/";
 
-	test = 0;
-	testBuf = "output:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 	/*login = 1;
 	for(int i = 0; i < courNum; i++)
 		mkdir(courName[i], S_IFDIR | 0755);*/
@@ -134,6 +123,7 @@ static void *learn_init(struct fuse_conn_info *conn,
 	fileInit();
 	memset(notice_list, 0, sizeof(struct course_notice)*courNumMax*100);
 	memset(file_lists, 0, sizeof(struct file_list)*courNumMax*5);
+	memset(h_list, 0, sizeof(struct homework)*courNumMax*5);
 	return NULL;
 }
 
@@ -200,24 +190,44 @@ static int learn_getattr(const char *path, struct stat *stbuf,
 							+ strlen(notice_list[i][j].content);
 			} else {
 				off = strstr(off+1,"/");
-				if(strstr(off+1,"/") == NULL) {
+				if((off = strstr(off+1,"/")) == NULL) {
+					stbuf->st_mode = S_IFDIR | 0755;
+					stbuf->st_nlink = 1;
+				} else if(strstr(off+1,"/") == NULL) {
 					stbuf->st_mode = S_IFDIR | 0755;
 					stbuf->st_nlink = 1;
 				} else if(strstr(off+1, "文件信息") != NULL) {
 					stbuf->st_mode = S_IFREG | 0444;
 					stbuf->st_nlink = 1;
-					stbuf->st_size = strlen(fileInfo);
-					for(int i = 0; i < fileNum; i ++)
-					if(strstr(path, fileTitle[i]) != NULL)
+					stbuf->st_size = fileInfoLen;
+					int i = getCourseIndexFromPath(path);
+					int j = getListIndexFromPath(path, i);
+					int k = getFileIndexFromPath(path, i, j);
+					if(i >= 0 && j >= 0 && k >= 0)
 					{
-						if(fileStatus[i] == 0)
+						struct course_file *temp = file_lists[i][j].files;
+						stbuf->st_size += strlen(temp[k].intro)
+								+ strlen(temp[k].file_size)
+								+ strlen(temp[k].upload_time);
+						if(strstr(temp[k].status, "新文件") != NULL)
 							stbuf->st_size += strlen("\n新文件");
-						break;
 					}
+					
 				} else {
-					stbuf->st_mode = S_IFREG | 0444;
+					stbuf->st_mode = S_IFREG | 0666;
 					stbuf->st_nlink = 1;
-					stbuf->st_size = downloadWords;
+					stbuf->st_size = strlen(defaultDownloadPath);
+					int i = getCourseIndexFromPath(path);
+					int j = getListIndexFromPath(path, i);
+					int k = getFileIndexFromPath(path, i, j);
+					if(i >= 0 && j >= 0 && k >= 0)
+					{
+						struct course_file *temp = file_lists[i][j].files;
+						if(temp[k].download_flag == 1)
+							stbuf->st_size = strlen(temp[k].save_path);
+						else
+							stbuf->st_size += strlen(temp[k].title);
+					}
 				}
 			}
 			
@@ -283,27 +293,37 @@ static int learn_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	} else if(strstr(path+1,"文件") != NULL) {
 		//fprintf(log_file, "[read addr]%s\n", path);fflush(log_file);
 		off = strstr(path+1,"/");
-		if(strstr(off+1,"/") == NULL) {
-			int i = getCourseIndexFromPath(path);
+		int i = getCourseIndexFromPath(path);
+		if((off = strstr(off+1,"/")) == NULL) {
 			getFileInfo(i);
-			for(int i = 0; i < fileNum; i++)
-				filler(buf, fileTitle[i], NULL, 0, 0);
+			for(int j = 0; j < file_list_num[i]; j++)
+				filler(buf, file_lists[i][j].name, NULL, 0, 0);
+		} else if((off = strstr(off+1,"/")) == NULL) {
+			int j = getListIndexFromPath(path, i);
+			for(int k = 0; k < file_lists[i][j].file_num; k ++)
+				filler(buf, file_lists[i][j].files[k].title, NULL, 0, 0);
 		} else {
 			filler(buf, "文件信息", NULL, 0, 0);
-			for(int i = 0; i < fileNum; i++) {
-				if(strstr(path, fileTitle[i]) != NULL)
-				{
-					char name[100];
-					strcpy(name, fileName[i]);
-					if(downloadWords == 0)
-						strcat(name, "-未下载");
-					filler(buf, name, NULL, 0, 0);
-					break;
-				}
-			}
+			int j = getListIndexFromPath(path, i);
+			int k = getFileIndexFromPath(path, i, j);
+			struct course_file *temp = file_lists[i][j].files;
+			char name[100];
+			strcpy(name, temp[k].title);
+			if(temp[k].download_flag == 0)
+				strcat(name, "-未下载");
+			else
+				strcat(name, "-已下载");
+			filler(buf, name, NULL, 0, 0);
 		}
-
-	} 
+	} else if(strstr(path+1,"作业") != NULL) {
+		off = strstr(path+1,"/");
+		int i = getCourseIndexFromPath(path);
+		if((off = strstr(off+1,"/")) == NULL) {
+			getHomeworkInfo(i);
+			/*for(int j = 0; j < file_list_num[i]; j++)
+				filler(buf, file_lists[i][j].name, NULL, 0, 0);*/
+		}
+	}
 
 	
 	
@@ -361,22 +381,34 @@ static int learn_read(const char *path, char *buf, size_t size, off_t offset,
 		memcpy(buf, info, size);
 		//return -ENOENT;
 	} else if(strstr(path, "文件信息") != NULL) {
+		int i = getCourseIndexFromPath(path);
+		int j = getListIndexFromPath(path, i);
+		int k = getFileIndexFromPath(path, i, j);
+		struct course_file *temp = file_lists[i][j].files;
 		char info[500];
-		strcpy(info,fileInfo);
-		for(int i = 0; i < fileNum; i ++)
-			if(strstr(path, fileTitle[i]) != NULL)
-			{
-				if(fileStatus[i] == 0)
-					strcat(info,"\n新文件");
-				break;
-			}
+		sprintf(info, "简要说明：%s\n文件大小：%s\n上载时间：%s",
+			temp[k].intro, temp[k].file_size, temp[k].upload_time);
+		if(strstr(temp[k].status, "新文件") != NULL)
+			strcat(info,"\n新文件");
 		size = strlen(info);
 		memcpy(buf, info, size);
 	} else if(strstr(path, "-未下载") != NULL) {
-		char *text; text = "file content download from learn";
-		size = strlen(text);
-		memcpy(buf, text, size);
-		downloadWords = size;
+		char filePath[100];
+		strcpy(filePath, defaultDownloadPath);
+		int i = getCourseIndexFromPath(path);
+		int j = getListIndexFromPath(path, i);
+		int k = getFileIndexFromPath(path, i, j);
+		struct course_file *temp = file_lists[i][j].files;
+		strcat(filePath, temp[k].title);
+		size = strlen(filePath);
+		memcpy(buf, filePath, size);
+	} else if(strstr(path, "-已下载") != NULL) {
+		int i = getCourseIndexFromPath(path);
+		int j = getListIndexFromPath(path, i);
+		int k = getFileIndexFromPath(path, i, j);
+		struct course_file *temp = file_lists[i][j].files;
+		size = strlen(temp[k].save_path);
+		memcpy(buf, temp[k].save_path, size);
 	} else if(strstr(path, "-未读") != NULL
 				|| strstr(path, "-已读") != NULL)
 	{
@@ -400,24 +432,42 @@ static int learn_read(const char *path, char *buf, size_t size, off_t offset,
 static int learn_write(const char *path, const char *buf, size_t size, off_t offset,
 		      struct fuse_file_info *fi)
 {
-	memcpy(userBuf, buf + offset, size);
-	userBufLen = size;
-	char delims[] = "\n";
-	char *result = NULL;
-	result = strtok(userBuf, delims);
-	memcpy(userid, result, strlen(result) > 20 ? 20 : strlen(result));
-	//fprintf(log_file, "[learn_write]%s\n", userid);
-	result = strtok(NULL, delims);
-	memcpy(userpass, result, strlen(result) > 50 ? 50 : strlen(result));
-	//fprintf(log_file, "[learn_write]%s\n", userpass);
-	login = 2;
+	if(strcmp(path, "/login") == 0)
+	{
+		memcpy(userBuf, buf + offset, size);
+		userBufLen = size;
+		char delims[] = "\n";
+		char *result = NULL;
+		result = strtok(userBuf, delims);
+		memcpy(userid, result, strlen(result) > 20 ? 20 : strlen(result));
+		//fprintf(log_file, "[learn_write]%s\n", userid);
+		result = strtok(NULL, delims);
+		memcpy(userpass, result, strlen(result) > 50 ? 50 : strlen(result));
+		//fprintf(log_file, "[learn_write]%s\n", userpass);
+		login = 2;
+	} else if(strstr(path,"-未下载") != NULL) {
+		int i = getCourseIndexFromPath(path);
+		int j = getListIndexFromPath(path, i);
+		int k = getFileIndexFromPath(path, i, j);
+		struct course_file *temp = file_lists[i][j].files;
+		strncpy(temp[k].save_path, buf + offset, size);
+		
+		temp[k].save_path[size - 1] = '\0';
+		fprintf(log_file, "[i give you]%s????\n", temp[k].save_path);fflush(log_file);
+		temp[k].download_flag = 1;
+		download_course_file(user_courses[i].id, temp[k].file_id, temp[k].file_path, temp[k].save_path);
+	}
 	return size;
 }
 
 static int learn_truncate(const char *path, off_t size, struct fuse_file_info *fi)
 {
 	(void) fi;
-	if (strcmp(path+1,"login") != 0)
+	if (strcmp(path+1,"login") == 0)
+		return size;
+	else if(strstr(path,"-未下载") != NULL)
+		return size;
+	else
 		return -EINVAL;
 
 	return size;
@@ -431,8 +481,8 @@ static int learn_flush(const char *path, struct fuse_file_info *fi)
 			return -1;*/
 		/*if(log_file == NULL)
 			write(log, "testBuf\n", strlen("testBuf\n"));*/
-		fprintf(log_file, "%s\n", "flushing");
-		fflush(log_file);
+		//fprintf(log_file, "%s\n", "flushing");
+		//fflush(log_file);
 		int rst = web_get_cookie(userid, userpass);
 		if(rst < 0)
 			return 0;
@@ -565,6 +615,40 @@ void getFileInfo(int i)
 	for(int j = 0; j < file_list_num[i]; j++)
 	{
 		fprintf(log_file, "[file!!!!     ]        %s\n", file_lists[i][j].name);
+	}
+	fflush(log_file);
+}
+
+int getListIndexFromPath(const char* path, int courseIndex)
+{
+	for(int i = 0; i < file_list_num[courseIndex]; i++)
+		if(strstr(path, file_lists[courseIndex][i].name) != NULL)
+			return i;
+	return -1;
+}
+
+int getFileIndexFromPath(const char* path, int courseIndex, int ListIndex)
+{
+	if(courseIndex < 0 || ListIndex < 0)
+		return -1;
+	struct course_file *temp = file_lists[courseIndex][ListIndex].files;
+	for(int i = 0; i < file_lists[courseIndex][ListIndex].file_num; i++)
+		if(strstr(path, temp[i].title) != NULL)
+			return i;
+	return -1;
+}
+
+void getHomeworkInfo(int i)
+{
+	memset(page_buff, 0, sizeof(page_buff));
+	get_homework_page(user_courses[i].id, page_buff);
+	homework_list_num[i] = 0;
+	extract_file_lists(page_buff, h_list[i], &homework_list_num[i]);
+	fprintf(log_file, "[homework num!!!!     ]        %d\n", homework_list_num[i]);
+	fflush(log_file);
+	for(int j = 0; j < homework_list_num[i]; j++)
+	{
+		fprintf(log_file, "[homework!!!!     ]        %s\n", h_list[i][j].title);
 	}
 	fflush(log_file);
 }
