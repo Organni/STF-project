@@ -52,6 +52,7 @@ int get_notice_detail_page(int course_id, int notice_id, char *detail_page){
 	strcat(URL, num_str);
 	//printf("%s\n", URL);
 	send_get(URL, get_cookie(),content, NULL);
+	//printf("after get before trim \n");
 	html_trim(content,detail_page);
 	//printf("CONTENT:%s\n",detail_page);
 	return 0;
@@ -404,7 +405,8 @@ int get_homework_detail_page(int course_id, int work_id,char* page_buff){
 
 	//printf("HEADER:%s\n",header);
 	//printf("CONTENT:%s\n",content);
-
+	//printf("page url: %d,%d\n",course_id,work_id);
+	//printf("page: %s\n",page_buff);
 	return 0;	
 }
 
@@ -428,7 +430,7 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		char title[100];
 		char start_time[20];
 		char end_time[20];
-		char status[20];
+		char status[50];
 		char handin_size[20];		// 提交的作业大小
 		char intro[1000];			// 作业说明
 		char appendix_name[100];	// 作业附件名称
@@ -438,21 +440,28 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		};
 	*/
 	//printf("twl html: %s\n",raw_html);
-/* 	
-	struct course_notice  temp_list[50];
-	memset(&temp_list, 0, sizeof(struct course_notice)*50);
-	int course_notice_num = 0; //本来应该用 notice_num比较好，但是已经被用了，
+ 	
+	struct homework temp_list[50];
+	memset(&temp_list, 0, sizeof(struct homework)*50);
+	int homework_num = 0; 
 	
 	int head = 0;
 	int i=0,j=0;
-	//int tail = 0;
 	char * p = raw_html;
-	head = string_find(p,"课程公告"); //以“课程公告”作为公告标识
+	for( i=0;i<3;i++ )
+	{
+		head = string_find(p,"<table"); //以第三个“<table”作为作业列表开始标识
+		p = p+head+6;
+	}
+	i=0;
+	head = string_find(p,"<tr"); //以“<tr”作为作业标识
 	while(head>=i)
 	{
-		p = p+head;
-		//id   课程公告&id=2026620&course_id=143187'>
-		i = string_find(p,"&id=")+4;
+		
+		p = p+head+3;
+		//id    href="hom_wk_detail.jsp?id=740753&course_id=142241&rec_id=null"
+		i = string_find(p,"?id=")+4;
+		if(i==3)	break ;
 		//printf("i= %d\n",i);
 		int id = 0;
 		while(p[i]!='&')//遇到‘&’表示id结束，可增加是否是数字的判断
@@ -460,71 +469,148 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 			id = id*10 + p[i] - '0';
 			i++ ;
 		}
-		temp_list[course_notice_num].notice_id = id;
+		temp_list[homework_num].id = id;
+		//printf("id: %d\n",temp_list[homework_num].id);
 		//course_id
-		i = i + string_find(p+i,"course_id")+10;
+		i = string_find(p,"rse_id=")+7;
+		//printf("i= %d\n",i);
 		int course_id = 0;
-		while(p[i]!='\'')//遇到‘'’表示id结束，可增加是否是数字的判断
+		while(p[i]!='&')//遇到‘&’表示id结束，可增加是否是数字的判断
 		{
 			course_id = course_id*10 + p[i] - '0';
 			i++ ;
 		}
-		
-		//title 	course_id=143187'><font color=red>大作业说明2</font></a> || course_id=143187'>实验三已发布</a>
+		//printf("course_id: %d\n",course_id);
+		//title 	rec_id=null">插值与数值积分</a></td>
 		i = i + string_find(p+i,">")+1;
-		if( p[i]=='<' )
-			i = i+string_find(p+i,">")+1;
+		//if( p[i]=='<' )
+			//i = i+string_find(p+i,">")+1;
 		//printf("i= %d\n",i);
-		j = i + string_find(p+i,"</");
-		memcpy(temp_list[course_notice_num].title,p+i,j-i);
-		//publisher   height=25>柴成亮</td>
+		j = i + string_find(p+i,"</a");
+		memcpy(temp_list[homework_num].title,p+i,j-i);
+		temp_list[homework_num].title[j-i] = '\0';
+		//printf("title: %s\n",temp_list[homework_num].title);
+		//start_time[20];     <td width="10%">2017-02-28</td>
 		i = i + string_find(p+i,"<td")+3;
 		i = i + string_find(p+i,">")+1;
 		j = i + string_find(p+i,"</td");
 		//printf("i= %d\n",i);
-		memcpy(temp_list[course_notice_num].publisher,p+i,j-i);
+		memcpy(temp_list[homework_num].start_time,p+i,j-i);
+		//printf("start: %s\n",temp_list[homework_num].start_time);
+		//char end_time[20];
+		i = i + string_find(p+i,"<td")+3;
+		i = i + string_find(p+i,">")+1;
+		j = i + string_find(p+i,"</td");
+		//printf("i= %d\n",i);
+		memcpy(temp_list[homework_num].end_time,p+i,j-i);
+		//printf("end: %s\n",temp_list[homework_num].end_time);
+		//char status[50];
+		i = i + string_find(p+i,"<td")+3;
+		i = i + string_find(p+i,">")+1;
+		j = i + string_find(p+i,"</td");
+		char temp_status[100];
+		memcpy(temp_status,p+i,j-i);
+		string_trim(temp_status,temp_list[homework_num].status);
+		//printf("status: %s\n",temp_list[homework_num].status);
+		//char handin_size[20];		// 提交的作业大小
+		i = i + string_find(p+i,"<td")+3;
+		i = i + string_find(p+i,">")+1;
+		j = i + string_find(p+i,"</td");
+		//printf("i= %d\n",i);
+		char temp_size[50];
+		memcpy(temp_size,p+i,j-i);
+		string_trim(temp_size,temp_list[homework_num].handin_size);
+		//printf("size: %s\n",temp_list[homework_num].handin_size);
+		
+		//进入作业页面
 
-		//time   同上
-		i = i + string_find(p+i,"<td")+3;
-		i = i + string_find(p+i,">")+1;
-		j = i + string_find(p+i,"</td");
-		//printf("i= %d\n",i);
-		memcpy(temp_list[course_notice_num].time,p+i,j-i);
-		//status     同上
-		i = i + string_find(p+i,"<td")+3;
-		i = i + string_find(p+i,">")+1;
-		j = i + string_find(p+i,"</td");
-		//printf("i= %d\n",i);
-		memcpy(temp_list[course_notice_num].status,p+i,j-i);
-		//content
+		char page_buff[5000];
+		//printf("before\n");
+		memset(page_buff,0,sizeof(page_buff));
+		get_homework_detail_page(course_id, id, page_buff);
+		//printf("after\n");
+		//printf("%s",page_buff);
+		char * q = page_buff;
+		int qi = 0;
+		int qj = 0;
+		//char intro[1000];			// 作业说明
+		qi = string_find(q,"作业说明")+4; 
+		qi = qi + string_find(q+qi,"<td")+3;
+		qi = qi + string_find(q+qi,"<textarea")+9;
+		qi = qi + string_find(q+qi,">")+1;
+		qj = qi + string_find(q+qi,"</textarea");
+		//printf("intro\n");
+		memcpy(temp_list[homework_num].intro,q+qi,qj-qi);
+		//printf("intro: %s\n",temp_list[homework_num].intro);
+		//char appendix_name[100];	// 作业附件名称
+		//char appendix_path[100]; 	//  作业附件的file_path，可以从超链接得到	
+		qi = qi + string_find(q+qi,"作业附件")+4;
+		qi = qi + string_find(q+qi,"<td")+3;
+		qi = qi + string_find(q+qi,">")+1;
+		qj = qi + string_find(q+qi,"</td");
+		int flag1 = 0;
+		int flag2 = 0;
+		flag1 = qi + string_find(q+qi,"无相关文件");
+		flag2 = qi + string_find(q+qi,"href");
+		if ((flag2>qi-1 &&flag2<qj)&&(flag1==qi-1||flag1>qj)) //
+		{
+			qi = qi + string_find(q+qi,"href=")+6; 
+			qj = qi + string_find(q+qi,"\"");
+			memcpy(temp_list[homework_num].appendix_path,q+qi,qj-qi);
+			//printf("path: %s\n",temp_list[homework_num].appendix_path);
+			qi = qi + string_find(q+qi,">")+1;
+			qj = qi + string_find(q+qi,"</a");
+			memcpy(temp_list[homework_num].appendix_name,q+qi,qj-qi);
+			//printf("name: %s\n",temp_list[homework_num].appendix_name);
+		}	
 		
-		//get_notice_detail_page(course_id, id, &temp_list[course_notice_num].content);
-		
-		
-		//printf("num: %d\n",course_notice_num);
-		//printf("id: %d\n",temp_list[course_notice_num].notice_id);
-		//printf("title: %s\n",temp_list[course_notice_num].title);
-		//printf("publisher: %s\n",temp_list[course_notice_num].publisher);
-		//printf("time: %s\n",temp_list[course_notice_num].time);
-		//printf("status: %s\n",temp_list[course_notice_num].status);
-		//printf("content: %s\n",temp_list[course_notice_num].content);
-		
-		
-		course_notice_num++;
+		//char handin_content[1000];
+		//char handin_name[100];		// 提交的作业名称和file_path
+		//char handin_path[100];
+		qi = string_find(q,"上交作业内容")+6; 
+		qi = qi + string_find(q+qi,"<td")+3;
+		qi = qi + string_find(q+qi,"<textarea")+9;
+		qi = qi + string_find(q+qi,">")+1;
+		qj = qi + string_find(q+qi,"</textarea");
+		if( qi==qj )
+		{
+			//temp_list[homework_num].handin_content=NULL;
+		}else
+		{
+			memcpy(temp_list[homework_num].handin_content,q+qi,qj-qi);
+		}
+
+		qi = qi + string_find(q+qi,"上交作业附件")+4;
+		qi = qi + string_find(q+qi,"<td")+3;
+		qi = qi + string_find(q+qi,">")+1;
+		qj = qi + string_find(q+qi,"</td");
+		flag1 = qi + string_find(q+qi,"无相关文件");
+		flag2 = qi + string_find(q+qi,"href");
+		if ((flag2>qi-1 &&flag2<qj)&&(flag1==qi-1||flag1>qj)) //
+		{
+			qi = qi + string_find(q+qi,"href=")+6;
+			qj = qi + string_find(q+qi,"\"");
+			memcpy(temp_list[homework_num].handin_path,q+qi,qj-qi);
+			//printf("path: %s\n",temp_list[homework_num].handin_path);
+			qi = qi + string_find(q+qi,">")+1;
+			qj = qi + string_find(q+qi,"</a");
+			memcpy(temp_list[homework_num].handin_name,q+qi,qj-qi);
+			//printf("name: %s\n",temp_list[homework_num].handin_name);
+		}	
+				
+		homework_num++;
 		//tail += head;
-		//printf("tail %d\n",tail);
-		head = i + string_find(p+i,"课程公告");
+		////printf("tail %d\n",tail);
+		head = i + string_find(p+i,"<tr");
 		//printf("head %d\n",head);
-
+		//printf("\n\n\n");
 	}
 	
-
 	
-	memcpy(notice_list, temp_list, sizeof(struct course_notice)*course_notice_num);
-	*notice_num = course_notice_num;
-	 */
+	memcpy(work_list, temp_list, sizeof(struct homework)*homework_num);
+	*list_num = homework_num;
 	
-	
+	//printf("return\n");
 	
 	return 0;
 }
@@ -550,16 +636,30 @@ void string_trim(char * strIn,char * strOut)
 //取出html格式
 void html_trim(char * strIn,char * strOut)
 {
+	printf("begin trim\n");
 	char temp1[1000];
 	char temp2[1000];
+	char temp_content[50000];
+	memset(temp_content,0,sizeof(temp_content));
 	int i,j,tail;
 	int length ;
 	char *p = strIn;
 	tail = 0;
 	length = 0;
 	i=0; j=0;
-	i= string_find(p,"</head>");
-	p = p+i+7;
+	i= string_find(p,"正文");
+	p = p+i+2;
+	i = string_find(p,"<td");
+	p = p+i;
+	j = string_find(p,"</td");
+	
+	printf("content_size: %d",j+2);
+	memcpy(temp_content,p,j+2);
+	
+	
+	
+	p = temp_content;
+	i=0;j=0;
 	i = string_find(p,">");
 	j = i + 1 + string_find(p+i+1,"<");
 	
@@ -595,7 +695,8 @@ void html_trim(char * strIn,char * strOut)
 	if(web_get_cookie(username, userpass) != 0)
 		return -1;
 	char page_buff [200000];
-
+	
+/*
 	//测试通知提取
 	int course_id = 142241;				//使用你的课程序号
 	get_notice_page(course_id, page_buff);
@@ -623,13 +724,14 @@ void html_trim(char * strIn,char * strOut)
 
 
 	//测试作业详情页面
-	int work_id = 744673;
-	course_id = 143812;
+	int work_id = 740753;
+	course_id = 142241;
 	memset(page_buff,0,200000);
 	get_homework_detail_page(course_id, work_id, page_buff);
 	//printf("[作业详情]%s\n", page_buff);
-
+*/
 	//测试作业提取
+	int course_id = 142241;
 	memset(page_buff,0,200000);
 	get_homework_page(course_id, page_buff);
 	struct homework work_list[50];
