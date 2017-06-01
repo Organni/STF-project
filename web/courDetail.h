@@ -36,11 +36,12 @@ struct homework{
 	char title[100];
 	char start_time[20];
 	char end_time[20];
-	char status[20];
+	char status[50];
 	char handin_size[20];		// 提交的作业大小
 	char intro[1000];			// 作业说明
 	char appendix_name[100];	// 作业附件名称
 	char appendix_path[100]; 	//  作业附件的file_path，可以从超链接得到
+	char handin_content[1000];
 	char handin_name[100];		// 提交的作业名称和file_path
 	char handin_path[100];
 };
