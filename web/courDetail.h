@@ -11,7 +11,7 @@ struct course_notice{
 	char publisher[20];	
 	char time[20];
 	char status[20];
-	char content[2000];
+	char content[5000];
 };
 
 struct course_file{

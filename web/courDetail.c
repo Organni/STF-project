@@ -42,6 +42,7 @@ int get_notice_detail_page(int course_id, int notice_id, char *detail_page){
 	strcat(URL, num_str);
 	//printf("%s\n", URL);
 	send_get(URL, get_cookie(),content, NULL);
+	//printf("after get before trim \n");
 	html_trim(content,detail_page);
 	//printf("CONTENT:%s\n",detail_page);
 	return 0;
@@ -454,7 +455,7 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 			i++ ;
 		}
 		temp_list[homework_num].id = id;
-		printf("id: %d\n",temp_list[homework_num].id);
+		//printf("id: %d\n",temp_list[homework_num].id);
 		//course_id
 		i = string_find(p,"rse_id=")+7;
 		//printf("i= %d\n",i);
@@ -464,7 +465,7 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 			course_id = course_id*10 + p[i] - '0';
 			i++ ;
 		}
-		printf("course_id: %d\n",course_id);
+		//printf("course_id: %d\n",course_id);
 		//title 	rec_id=null">插值与数值积分</a></td>
 		i = i + string_find(p+i,">")+1;
 		//if( p[i]=='<' )
@@ -473,21 +474,21 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		j = i + string_find(p+i,"</a");
 		memcpy(temp_list[homework_num].title,p+i,j-i);
 		temp_list[homework_num].title[j-i] = '\0';
-		printf("title: %s\n",temp_list[homework_num].title);
+		//printf("title: %s\n",temp_list[homework_num].title);
 		//start_time[20];     <td width="10%">2017-02-28</td>
 		i = i + string_find(p+i,"<td")+3;
 		i = i + string_find(p+i,">")+1;
 		j = i + string_find(p+i,"</td");
 		//printf("i= %d\n",i);
 		memcpy(temp_list[homework_num].start_time,p+i,j-i);
-		printf("start: %s\n",temp_list[homework_num].start_time);
+		//printf("start: %s\n",temp_list[homework_num].start_time);
 		//char end_time[20];
 		i = i + string_find(p+i,"<td")+3;
 		i = i + string_find(p+i,">")+1;
 		j = i + string_find(p+i,"</td");
 		//printf("i= %d\n",i);
 		memcpy(temp_list[homework_num].end_time,p+i,j-i);
-		printf("end: %s\n",temp_list[homework_num].end_time);
+		//printf("end: %s\n",temp_list[homework_num].end_time);
 		//char status[50];
 		i = i + string_find(p+i,"<td")+3;
 		i = i + string_find(p+i,">")+1;
@@ -495,7 +496,7 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		char temp_status[100];
 		memcpy(temp_status,p+i,j-i);
 		string_trim(temp_status,temp_list[homework_num].status);
-		printf("status: %s\n",temp_list[homework_num].status);
+		//printf("status: %s\n",temp_list[homework_num].status);
 		//char handin_size[20];		// 提交的作业大小
 		i = i + string_find(p+i,"<td")+3;
 		i = i + string_find(p+i,">")+1;
@@ -504,7 +505,7 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		char temp_size[50];
 		memcpy(temp_size,p+i,j-i);
 		string_trim(temp_size,temp_list[homework_num].handin_size);
-		printf("size: %s\n",temp_list[homework_num].handin_size);
+		//printf("size: %s\n",temp_list[homework_num].handin_size);
 		
 		//进入作业页面
 
@@ -525,7 +526,7 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		qj = qi + string_find(q+qi,"</textarea");
 		//printf("intro\n");
 		memcpy(temp_list[homework_num].intro,q+qi,qj-qi);
-		printf("intro: %s\n",temp_list[homework_num].intro);
+		//printf("intro: %s\n",temp_list[homework_num].intro);
 		//char appendix_name[100];	// 作业附件名称
 		//char appendix_path[100]; 	//  作业附件的file_path，可以从超链接得到	
 		qi = qi + string_find(q+qi,"作业附件")+4;
@@ -541,11 +542,11 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 			qi = qi + string_find(q+qi,"href=")+6; 
 			qj = qi + string_find(q+qi,"\"");
 			memcpy(temp_list[homework_num].appendix_path,q+qi,qj-qi);
-			printf("path: %s\n",temp_list[homework_num].appendix_path);
+			//printf("path: %s\n",temp_list[homework_num].appendix_path);
 			qi = qi + string_find(q+qi,">")+1;
 			qj = qi + string_find(q+qi,"</a");
 			memcpy(temp_list[homework_num].appendix_name,q+qi,qj-qi);
-			printf("name: %s\n",temp_list[homework_num].appendix_name);
+			//printf("name: %s\n",temp_list[homework_num].appendix_name);
 		}	
 		
 		//char handin_content[1000];
@@ -575,26 +576,26 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 			qi = qi + string_find(q+qi,"href=")+6;
 			qj = qi + string_find(q+qi,"\"");
 			memcpy(temp_list[homework_num].handin_path,q+qi,qj-qi);
-			printf("path: %s\n",temp_list[homework_num].handin_path);
+			//printf("path: %s\n",temp_list[homework_num].handin_path);
 			qi = qi + string_find(q+qi,">")+1;
 			qj = qi + string_find(q+qi,"</a");
 			memcpy(temp_list[homework_num].handin_name,q+qi,qj-qi);
-			printf("name: %s\n",temp_list[homework_num].handin_name);
+			//printf("name: %s\n",temp_list[homework_num].handin_name);
 		}	
 				
 		homework_num++;
 		//tail += head;
-		//printf("tail %d\n",tail);
+		////printf("tail %d\n",tail);
 		head = i + string_find(p+i,"<tr");
 		//printf("head %d\n",head);
-		printf("\n\n\n");
+		//printf("\n\n\n");
 	}
 	
 	
 	memcpy(work_list, temp_list, sizeof(struct homework)*homework_num);
 	*list_num = homework_num;
 	
-	printf("return\n");
+	//printf("return\n");
 	
 	return 0;
 }
@@ -620,16 +621,30 @@ void string_trim(char * strIn,char * strOut)
 //取出html格式
 void html_trim(char * strIn,char * strOut)
 {
+	printf("begin trim\n");
 	char temp1[1000];
 	char temp2[1000];
+	char temp_content[50000];
+	memset(temp_content,0,sizeof(temp_content));
 	int i,j,tail;
 	int length ;
 	char *p = strIn;
 	tail = 0;
 	length = 0;
 	i=0; j=0;
-	i= string_find(p,"</head>");
-	p = p+i+7;
+	i= string_find(p,"正文");
+	p = p+i+2;
+	i = string_find(p,"<td");
+	p = p+i;
+	j = string_find(p,"</td");
+	
+	printf("content_size: %d",j+2);
+	memcpy(temp_content,p,j+2);
+	
+	
+	
+	p = temp_content;
+	i=0;j=0;
 	i = string_find(p,">");
 	j = i + 1 + string_find(p+i+1,"<");
 	
