@@ -2,7 +2,7 @@
 #include "webOps.h"
 
 char user_cookie[500];
-extern FILE* log_file;
+FILE* log_file;
 
 struct course_info user_courses[50];
 int course_num;
@@ -51,8 +51,8 @@ int web_get_cookie(char userid[], char userpass[]){
 	strcat(body, userpass);
 	strcat(body, "&submiy1: 登录");
 	fprintf(log_file, "[login uid]%s\n", userid);
-	fprintf(log_file, "[login upass]%s\n", userpass);
-
+	fprintf(log_file, "[login upass]%s\n", userpass);	
+	fflush(log_file);
 	int res = send_post(URL, body, NULL, content, header);
 	if(res != 0){
 		return -1;
@@ -62,15 +62,18 @@ int web_get_cookie(char userid[], char userpass[]){
 		return -2;
 	fprintf(log_file, "[HEADER]%s\n", header);
 	fprintf(log_file, "[CONTENT]%s\n", content);
+	fflush(log_file);
 	char cookies[500];
 	memset(cookies, 0, 500);
 
 	extract_cookies(header, cookies);
 	set_cookie(cookies);
 
-	//fprintf(log_file,"[COOKIES]: %s\n",cookies);
+	fprintf(log_file,"[COOKIES]: %s\n",cookies);
+	fflush(log_file);
 	if(strstr(cookies,"THNSV2COOKIE") == NULL){
-		printf("无法获取COOKIE\n");
+		fprintf(log_file,"[COOKIES]FAIL\n");
+		fflush(log_file);
 		return -1;
 	}
 	return 0;
@@ -237,7 +240,8 @@ int extract_courses(char *raw_html, struct course_info *info_list, int *info_num
 	*/
 	//printf("twl html: %s\n",raw_html);	
 	int head = 0;
-	int i=0,j=0;
+	int i=0,j=0,end;
+	char buf[5];
 	//int tail = 0;
 	char * p = raw_html;
 	head = string_find(p,"!--td");
@@ -260,47 +264,24 @@ int extract_courses(char *raw_html, struct course_info *info_list, int *info_num
 		//printf("i= %d\n",i);
 		j = i + string_find(p+i,"</a>");
 		memcpy(temp_list[course_num].name,p+i,j-i);
-		int n =0;
 		//未交作业数   ">1</span>个未交作业</td>
-		n=0;
-		i = i + string_find(p+i,"个未交作业")-8;
-		while(p[i]!='>')
-		{
-			i = i-1;
-		}
-		i = i+1;
-		while(p[i]!='<')
-		{
-			n = 10*n + p[i]-'0';
-		}
-		//printf("i= %d\n",i);
-		temp_list[course_num].unhanded_work_num = n;
+		i = i + string_find(p+i,"\"red_text\">")+strlen("\"red_text\">");
+		end = string_find(p+i,"</span>");
+		strncpy(buf, p + i, end);
+		buf[end] = "\0";
+		temp_list[course_num].unhanded_work_num = atoi(buf);
 		//未读公告数   ">2</span>个未读公告</td
-		i = i + string_find(p+i,"个未读公告")-8;
-		//printf("i= %d\n",i);
-		while(p[i]!='>')
-		{
-			i = i-1;
-		}
-		i = i+1;
-		while(p[i]!='<')
-		{
-			n = 10*n + p[i]-'0';
-		}
-		temp_list[course_num].unread_notice_num = n;
+		i = i + string_find(p+i,"\"red_text\">")+strlen("\"red_text\">");
+		end = string_find(p+i,"</span>");
+		strncpy(buf, p + i, end);
+		buf[end] = "\0";
+		temp_list[course_num].unread_notice_num = atoi(buf);
 		//新文件数     ">0</span>个新文件</td>
-		i = i + string_find(p+i,"个新文件")-8;
-		//printf("i= %d\n",i);
-		while(p[i]!='>')
-		{
-			i = i-1;
-		}
-		i = i+1;
-		while(p[i]!='<')
-		{
-			n = 10*n + p[i]-'0';
-		}
-		temp_list[course_num].new_file_num = n;
+		i = i + string_find(p+i,"\"red_text\">")+strlen("\"red_text\">");
+		end = string_find(p+i,"</span>");
+		strncpy(buf, p + i, end);
+		buf[end] = "\0";
+		temp_list[course_num].new_file_num = atoi(buf);
 		
 		//printf("num: %d\n",course_num);
 		//printf("id: %d\n",temp_list[course_num].id);
@@ -345,3 +326,9 @@ int string_find(const char *pSrc, const char *pDst)
 	}  
     return -1; 
 }  
+
+void fileInit()
+{
+	int log = open("/home/mlf/桌面/log.txt", O_WRONLY);
+	log_file = fdopen(log, "a");
+}

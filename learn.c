@@ -77,7 +77,7 @@ char **fileName;
 int downloadWords;
 
 int log;
-FILE *log_file;
+extern FILE *log_file;
 
 static struct options {
 	const char *filename;
@@ -133,8 +133,10 @@ static void *learn_init(struct fuse_conn_info *conn,
 	for(int i = 0; i < courNum; i++)
 		mkdir(courName[i], S_IFDIR | 0755);*/
 
-	log = open("/home/mlf/桌面/log.txt", O_WRONLY);
-	log_file = fdopen(log, "a");
+	/*log = open("/home/mlf/桌面/log.txt", O_WRONLY);
+	log_file = fdopen(log, "a");*/
+	fileInit();
+
 	return NULL;
 }
 
@@ -260,6 +262,9 @@ static int learn_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			filler(buf, "login", NULL, 0, 0);
 		} else {
 			getCourseInfo();
+			if(course_num == 0)
+				filler(buf, "bug", NULL, 0, 0);
+			else
 			for(int i = 0; i < course_num; i++)
 				filler(buf, user_courses[i].name, NULL, 0, 0);
 		}
@@ -417,8 +422,10 @@ static int learn_flush(const char *path, struct fuse_file_info *fi)
 	{
 		/*if(web_get_cookie(userid, userpass) != 0);
 			return -1;*/
-/*		if(log_file == NULL)
+		/*if(log_file == NULL)
 			write(log, "testBuf\n", strlen("testBuf\n"));*/
+		fprintf(log_file, "%s\n", "flushing");
+		fflush(log_file);
 		int rst = web_get_cookie(userid, userpass);
 		if(rst < 0)
 			return 0;
@@ -492,15 +499,17 @@ void getCourseInfo()
 	char course_page[50000];
 	memset(course_page, 0 , 50000);
 	get_course_page(course_page);
+	fprintf(log_file, "%s\n", course_page);
+	fflush(log_file);
 	course_num = 0;
 	extract_courses(course_page, &user_courses, &course_num);
-	/*for(int i = 0; i < course_num; i ++) {
+	for(int i = 0; i < course_num; i ++) {
 		fprintf(log_file, "%s %d %d %d\n", user_courses[i].name,
 			user_courses[i].unhanded_work_num,
 			user_courses[i].unread_notice_num,
 			user_courses[i].new_file_num);
 	}
-	fflush(log_file);*/
+	fflush(log_file);
 }
 
 int getIforPath(const char* path)
