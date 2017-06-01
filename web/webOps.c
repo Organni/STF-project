@@ -60,8 +60,8 @@ int web_get_cookie(char userid[], char userpass[]){
 
 	if(log_file == NULL)
 		return -2;
-	fprintf(log_file, "[HEADER]%s\n", header);
-	fprintf(log_file, "[CONTENT]%s\n", content);
+/*	fprintf(log_file, "[HEADER]%s\n", header);
+	fprintf(log_file, "[CONTENT]%s\n", content);*/
 	fflush(log_file);
 	char cookies[500];
 	memset(cookies, 0, 500);

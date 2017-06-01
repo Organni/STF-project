@@ -59,4 +59,14 @@ void string_trim(char* strIn,char* strOut);
 
 void html_trim(char* strIn,char* strOut);
 
+int get_file_page(int course_id, char*page_buff);
+
+int extract_file_lists(char* raw_html, struct file_list *f_list, int* list_num);
+
+int get_homework_page(int course_id, char* page_buff);
+
+int get_homework_detail_page(int course_id, int work_id,char* page_buff);
+
+int extract_homework_list(char* raw_html, struct  homework *work_list, int* list_num);
+
 #endif

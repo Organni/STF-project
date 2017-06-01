@@ -1,6 +1,16 @@
 #include "webOps.h"
 #include "courDetail.h"
 
+void myReplace(char* a)
+{
+	while(*a != '\0')
+	{
+		if(*a == '/')
+			*a = '-';
+		a ++;
+	}
+}
+
 int get_notice_page(int course_id, char* notice_page){
 	char URL[256] = "http://learn.tsinghua.edu.cn/MultiLanguage/public/bbs/getnoteid_student.jsp?course_id=";
 	char num_str[50];
@@ -111,12 +121,16 @@ int extract_notice_list(char* raw_html, int course_id, struct course_notice *not
 		//printf("i= %d\n",i);
 		j = i + string_find(p+i,"</");
 		memcpy(temp_list[course_notice_num].title,p+i,j-i);
+		temp_list[course_notice_num].title[j-i] = '\0';
+		myReplace(temp_list[course_notice_num].title);
+
 		//publisher   height=25>柴成亮</td>
 		i = i + string_find(p+i,"<td")+3;
 		i = i + string_find(p+i,">")+1;
 		j = i + string_find(p+i,"</td");
 		//printf("i= %d\n",i);
 		memcpy(temp_list[course_notice_num].publisher,p+i,j-i);
+		temp_list[course_notice_num].publisher[j-i] = '\0';
 
 		//time   同上
 		i = i + string_find(p+i,"<td")+3;
@@ -124,12 +138,14 @@ int extract_notice_list(char* raw_html, int course_id, struct course_notice *not
 		j = i + string_find(p+i,"</td");
 		//printf("i= %d\n",i);
 		memcpy(temp_list[course_notice_num].time,p+i,j-i);
+		temp_list[course_notice_num].time[j-i] = '\0';
 		//status     同上
 		i = i + string_find(p+i,"<td")+3;
 		i = i + string_find(p+i,">")+1;
 		j = i + string_find(p+i,"</td");
 		//printf("i= %d\n",i);
 		memcpy(temp_list[course_notice_num].status,p+i,j-i);
+		temp_list[course_notice_num].status[j-i] = '\0';
 		//content
 		
 		get_notice_detail_page(course_id, id, temp_list[course_notice_num].content);
@@ -253,7 +269,7 @@ int extract_file_lists(char* raw_html, struct file_list *f_list, int* list_num){
 		
 		//printf("%d\n",k);
 		//printf("flag: %d\n",flag);
-		
+		char temp_title[100];
 		while(head>=i && head<flag )
 		{
 			p = p+head+5;
@@ -573,7 +589,7 @@ void html_trim(char * strIn,char * strOut)
 }
 
 
-int main(int argc, char** argv){
+/*int main(int argc, char** argv){
 	char username[] = "";		//在这里输入你的用户名和密码来测试
 	char userpass[] = "";
 	if(web_get_cookie(username, userpass) != 0)
@@ -598,11 +614,11 @@ int main(int argc, char** argv){
 
  
 	//测试课程文件下载
-/* 	course_id = ;
+ 	course_id = ;
 	int file_id = 17407;
 	char file_path[] = "pQBMevczBtpsZni82CpX7BZk9vHu/lvu9f/HBuhd9TjwRGPdtG/JM%2BmEypmvASL8Opb9znfBqtM%3D";
 	download_course_file(course_id, file_id, file_path, "课程说明"); 
-*/
+
 	
 
 
