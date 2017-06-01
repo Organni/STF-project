@@ -2,6 +2,7 @@
 #define COUR_DETAIL 
 
 #include <stdlib.h>
+#include <string.h>
 #include "webOps.h"
 
 struct course_notice{
@@ -54,6 +55,8 @@ int download_course_file(int course_id, int file_id, char* file_path, char* save
 
 int get_homework_page(int course_id, char* page_buff);
 
-void string_trim(char* pStr);
+void string_trim(char* strIn,char* strOut);
+
+void html_trim(char* strIn,char* strOut);
 
 #endif

@@ -42,12 +42,7 @@ int get_notice_detail_page(int course_id, int notice_id, char *detail_page){
 	strcat(URL, num_str);
 	//printf("%s\n", URL);
 	send_get(URL, get_cookie(),content, NULL);
-	int i=0,j=0;
-	i = string_find(content,">正文<")+4;
-	i = i + string_find(content+i,"<td")+3;
-	i = i + string_find(content+i,">")+1;
-	j = i + string_find(content+i,"</td");
-	memcpy(detail_page,content+i,j-i);
+	html_trim(content,detail_page);
 	//printf("CONTENT:%s\n",detail_page);
 	return 0;
 }
@@ -137,7 +132,7 @@ int extract_notice_list(char* raw_html, int course_id, struct course_notice *not
 		memcpy(temp_list[course_notice_num].status,p+i,j-i);
 		//content
 		
-		//get_notice_detail_page(course_id, id, &temp_list[course_notice_num].content);
+		get_notice_detail_page(course_id, id, temp_list[course_notice_num].content);
 		
 		
 		//printf("num: %d\n",course_notice_num);
@@ -162,7 +157,7 @@ int extract_notice_list(char* raw_html, int course_id, struct course_notice *not
 	memcpy(notice_list, temp_list, sizeof(struct course_notice)*course_notice_num);
 	*notice_num = course_notice_num;
 	
-	printf("detail content unsolved !return\n\n\n");
+	//printf("detail content unsolved !return\n\n\n");
 	
 	return 0;
 }
@@ -277,9 +272,9 @@ int extract_file_lists(char* raw_html, struct file_list *f_list, int* list_num){
 			//title 	id=1740355" >讲稿01     </a>
 			i = i + string_find(p+i,">")+1;
 			j = i + string_find(p+i,"</a>");
-			memcpy(temp_list[k].files[course_file_num].title,p+i,j-i);
-			//printf("title before trim: %s\n",temp_list[k].files[course_file_num].title);
-			string_trim(temp_list[k].files[course_file_num].title); //去除空格
+			char temp_title[100];
+			memcpy(temp_title,p+i,j-i);
+			string_trim(temp_title,temp_list[k].files[course_file_num].title); //去除空格
 			//printf("title: %s\n",temp_list[k].files[course_file_num].title);
 			//printf("i= %d\n",i);
 			//intro   center">数学实验与建模概述</td>
@@ -307,8 +302,9 @@ int extract_file_lists(char* raw_html, struct file_list *f_list, int* list_num){
 			i = i + string_find(p+i,"<td")+3;
 			i = i + string_find(p+i,">")+1;
 			j = i + string_find(p+i,"</td");
-			memcpy(temp_list[k].files[course_file_num].status,p+i,j-i);
-			string_trim(temp_list[k].files[course_file_num].status);
+			char temp_status[50];
+			memcpy(temp_status,p+i,j-i);
+			string_trim(temp_status,temp_list[k].files[course_file_num].status);
 			//printf("status: %s\n",temp_list[k].files[course_file_num].status);
 			
 		
@@ -325,7 +321,7 @@ int extract_file_lists(char* raw_html, struct file_list *f_list, int* list_num){
 	
 	memcpy(f_list, temp_list, sizeof(struct file_list)*file_list_num);
 
-	//printf("file_list end\n");
+	printf("file_list end\n");
 	return 0;
 }
 
@@ -411,25 +407,172 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		当你获得一个作业的序号后，使用以下代码获得作业详情的网页，并从中获取作业的说明，附件等
 		char page_buff[5000];
 		get_homework_detail_page(icourse_id, work_id, page_buff)；
+	
+		struct homework{
+		int id;						//超链接里的第一个id， 不是rec_id
+		char title[100];
+		char start_time[20];
+		char end_time[20];
+		char status[20];
+		char handin_size[20];		// 提交的作业大小
+		char intro[1000];			// 作业说明
+		char appendix_name[100];	// 作业附件名称
+		char appendix_path[100]; 	//  作业附件的file_path，可以从超链接得到
+		char handin_name[100];		// 提交的作业名称和file_path
+		char handin_path[100];
+		};
 	*/
+	//printf("twl html: %s\n",raw_html);
+/* 	
+	struct course_notice  temp_list[50];
+	memset(&temp_list, 0, sizeof(struct course_notice)*50);
+	int course_notice_num = 0; //本来应该用 notice_num比较好，但是已经被用了，
+	
+	int head = 0;
+	int i=0,j=0;
+	//int tail = 0;
+	char * p = raw_html;
+	head = string_find(p,"课程公告"); //以“课程公告”作为公告标识
+	while(head>=i)
+	{
+		p = p+head;
+		//id   课程公告&id=2026620&course_id=143187'>
+		i = string_find(p,"&id=")+4;
+		//printf("i= %d\n",i);
+		int id = 0;
+		while(p[i]!='&')//遇到‘&’表示id结束，可增加是否是数字的判断
+		{
+			id = id*10 + p[i] - '0';
+			i++ ;
+		}
+		temp_list[course_notice_num].notice_id = id;
+		//course_id
+		i = i + string_find(p+i,"course_id")+10;
+		int course_id = 0;
+		while(p[i]!='\'')//遇到‘'’表示id结束，可增加是否是数字的判断
+		{
+			course_id = course_id*10 + p[i] - '0';
+			i++ ;
+		}
+		
+		//title 	course_id=143187'><font color=red>大作业说明2</font></a> || course_id=143187'>实验三已发布</a>
+		i = i + string_find(p+i,">")+1;
+		if( p[i]=='<' )
+			i = i+string_find(p+i,">")+1;
+		//printf("i= %d\n",i);
+		j = i + string_find(p+i,"</");
+		memcpy(temp_list[course_notice_num].title,p+i,j-i);
+		//publisher   height=25>柴成亮</td>
+		i = i + string_find(p+i,"<td")+3;
+		i = i + string_find(p+i,">")+1;
+		j = i + string_find(p+i,"</td");
+		//printf("i= %d\n",i);
+		memcpy(temp_list[course_notice_num].publisher,p+i,j-i);
+
+		//time   同上
+		i = i + string_find(p+i,"<td")+3;
+		i = i + string_find(p+i,">")+1;
+		j = i + string_find(p+i,"</td");
+		//printf("i= %d\n",i);
+		memcpy(temp_list[course_notice_num].time,p+i,j-i);
+		//status     同上
+		i = i + string_find(p+i,"<td")+3;
+		i = i + string_find(p+i,">")+1;
+		j = i + string_find(p+i,"</td");
+		//printf("i= %d\n",i);
+		memcpy(temp_list[course_notice_num].status,p+i,j-i);
+		//content
+		
+		//get_notice_detail_page(course_id, id, &temp_list[course_notice_num].content);
+		
+		
+		//printf("num: %d\n",course_notice_num);
+		//printf("id: %d\n",temp_list[course_notice_num].notice_id);
+		//printf("title: %s\n",temp_list[course_notice_num].title);
+		//printf("publisher: %s\n",temp_list[course_notice_num].publisher);
+		//printf("time: %s\n",temp_list[course_notice_num].time);
+		//printf("status: %s\n",temp_list[course_notice_num].status);
+		//printf("content: %s\n",temp_list[course_notice_num].content);
+		
+		
+		course_notice_num++;
+		//tail += head;
+		//printf("tail %d\n",tail);
+		head = i + string_find(p+i,"课程公告");
+		//printf("head %d\n",head);
+
+	}
+	
+
+	
+	memcpy(notice_list, temp_list, sizeof(struct course_notice)*course_notice_num);
+	*notice_num = course_notice_num;
+	 */
+	
+	
+	
 	return 0;
 }
 
 //去除字符串中的空格、换行
-void string_trim(char * pStr)
+void string_trim(char * strIn,char * strOut)
 {
-	char *pTmp = pStr;  
-      
-    while (*pStr != '\0')   
-    {  
-        if (*pStr != ' ' && *pStr != '\t' && *pStr != '\n' )  
-        {  
-            *pTmp++ = *pStr;  
-        }  
-        ++pStr;  
-    }  
-    *pTmp = '\0';
+    int i, j ;
+
+    i = 0;
+
+    j = strlen(strIn) - 1;
+
+    while(strIn[i]==' ' || strIn[i]=='\n' || strIn[i]=='\t' || strIn[i]=='\r')
+        ++i;
+
+    while(strIn[i]==' ' || strIn[i]=='\n' || strIn[i]=='\t' || strIn[i]=='\r')
+        --j;
+    memcpy(strOut, strIn + i , j - i + 1);
+    strOut[j - i + 1] = '\0';
 }
+
+//取出html格式
+void html_trim(char * strIn,char * strOut)
+{
+	char temp1[1000];
+	char temp2[1000];
+	int i,j,tail;
+	int length ;
+	char *p = strIn;
+	tail = 0;
+	length = 0;
+	i=0; j=0;
+	i= string_find(p,"</head>");
+	p = p+i+7;
+	i = string_find(p,">");
+	j = i + 1 + string_find(p+i+1,"<");
+	
+	
+	while(i!=-1 && j!=i)
+	{
+		p = p+i+1;
+		if(j-i-1>0)
+		{
+			memcpy(temp1,p,j-i-1);
+			temp1[j-i-1]='\0';
+			string_trim(temp1,temp2);
+			length = strlen(temp2);
+			if(length>0)
+			{
+				temp2[length] = '\n';
+				length++ ;
+				memcpy(strOut+tail,temp2,length);
+				tail = tail+length;
+			}
+		}
+		i = string_find(p,">");
+		j = i + 1 + string_find(p+i+1,"<");
+	}
+	
+	strOut[tail] = '\0';
+}
+
 
 int main(int argc, char** argv){
 	char username[] = "";		//在这里输入你的用户名和密码来测试
@@ -457,12 +600,13 @@ int main(int argc, char** argv){
 
  
 	//测试课程文件下载
-	course_id = 142241;
+/* 	course_id = ;
 	int file_id = 17407;
 	char file_path[] = "pQBMevczBtpsZni82CpX7BZk9vHu/lvu9f/HBuhd9TjwRGPdtG/JM%2BmEypmvASL8Opb9znfBqtM%3D";
-	download_course_file(course_id, file_id, file_path, "课程说明");
+	download_course_file(course_id, file_id, file_path, "课程说明"); 
+*/
 	
-/*
+
 
 	//测试作业详情页面
 	int work_id = 744673;
@@ -477,6 +621,6 @@ int main(int argc, char** argv){
 	struct homework work_list[50];
 	int work_num = 0;
 	extract_homework_list(page_buff, work_list, &work_num);
-	 */
+
 	return 0;
 }
