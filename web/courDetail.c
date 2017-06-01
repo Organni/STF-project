@@ -280,7 +280,7 @@ int extract_file_lists(char* raw_html, struct file_list *f_list, int* list_num){
 			memcpy(temp_list[k].files[course_file_num].title,p+i,j-i);
 			//printf("title before trim: %s\n",temp_list[k].files[course_file_num].title);
 			string_trim(temp_list[k].files[course_file_num].title); //去除空格
-			//printf("title: %s\n",temp_list[k].files[course_file_num].title);
+			printf("title: %s\n",temp_list[k].files[course_file_num].title);
 			//printf("i= %d\n",i);
 			//intro   center">数学实验与建模概述</td>
 			i = i + string_find(p+i,"<td")+3;
@@ -436,7 +436,6 @@ void string_trim(char * pStr)
 	char userpass[] = "";
 	if(web_get_cookie(username, userpass) != 0)
 		return -1;
-
 	char page_buff [200000];
 
 	//测试通知提取

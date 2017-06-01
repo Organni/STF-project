@@ -102,7 +102,9 @@ static void *learn_init(struct fuse_conn_info *conn,
 	cfg->kernel_cache = 1;
 	//test[0] = '0'; test[1] = '\0';
 	login = 0;
-
+	sprintf(userBuf,"<学号>\n<密码>\n请将上述两个标签替换为您的学号和密码");
+	userBufLen = strlen(userBuf);
+	
 	noticeNum = 2;
 	noticeTitle = malloc(sizeof(char*)*2);
 	noticeTitle[0] = "notice0title";

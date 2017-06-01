@@ -40,7 +40,8 @@ size_t write_data(void * ptr, size_t size, size_t nmemb, void * stream)
 }*/
 
 int web_get_cookie(char userid[], char userpass[]){
-	char URL[] = "https://learn.tsinghua.edu.cn/MultiLanguage/lesson/teacher/loginteacher.jsp";
+
+	char URL[] = "http://learn.tsinghua.edu.cn/MultiLanguage/lesson/teacher/loginteacher.jsp";
 	char body[500] = "userid=";
 	char content[50000];
 	char header[2000];
@@ -54,16 +55,21 @@ int web_get_cookie(char userid[], char userpass[]){
 	fprintf(log_file, "[login upass]%s\n", userpass);
 
 	int res = send_post(URL, body, NULL, content, header);
+	if(res != 0){
+		return -1;
+	}
 
 	if(log_file == NULL)
 		return -2;
-	//fprintf(log_file, "[HEADER]%s\n", header);
-	//fprintf(log_file, "[CONTENT]%s\n", content);
+	fprintf(log_file, "[HEADER]%s\n", header);
+	fprintf(log_file, "[CONTENT]%s\n", content);
 	char cookies[500];
 	memset(cookies, 0, 500);
+
 	extract_cookies(header, cookies);
 	set_cookie(cookies);
-	fprintf(log_file,"[COOKIES]: %s\n",cookies);
+
+	//fprintf(log_file,"[COOKIES]: %s\n",cookies);
 	if(strstr(cookies,"THNSV2COOKIE") == NULL){
 		printf("无法获取COOKIE\n");
 		return -1;
@@ -80,6 +86,7 @@ int send_post(char URL[], char body[], char cookies[], char* content, char* head
                   printf("cannot get a CURL\n");
 		return -1;
 	}
+	int rst = 0;
  	// 设置属性 	
  	curl_easy_setopt(curl, CURLOPT_URL, URL);
  	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
@@ -97,9 +104,8 @@ int send_post(char URL[], char body[], char cookies[], char* content, char* head
 
 	}
 
-	curl_easy_perform(curl);	
-	curl_easy_cleanup(curl);
-
+	rst = curl_easy_perform(curl);	
+	printf("[error]%s\n",  curl_easy_strerror(rst));
 	//printf("%s\n",header);
 	//printf("%s\n",content);
  	return 0;
@@ -143,8 +149,13 @@ int extract_cookies(char header[], char cookies[]) {
 	char *token  = NULL;
 	int i  = 0;
 	token = strtok(header, delima);
-	for (; i < 4; i++)			// cookies are the 5th and 6th line in header
+	if(!token)
+		return -1;
+	for (; i < 4; i++){			// cookies are the 5th and 6th line in header
 		token = strtok(NULL, delima);
+		if(!token)
+			return -1;
+	}
 	token = token + 12; 		// skip "Set-Cookie: "
 	strncat(cookies, token,strlen(token)-6);	//skip "path=/"
 	token =  strtok(NULL, delima);
