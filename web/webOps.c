@@ -40,7 +40,6 @@ size_t write_data(void * ptr, size_t size, size_t nmemb, void * stream)
 }*/
 
 int web_get_cookie(char userid[], char userpass[]){
-
 	char URL[] = "http://learn.tsinghua.edu.cn/MultiLanguage/lesson/teacher/loginteacher.jsp";
 	char body[500] = "userid=";
 	char content[50000];
@@ -263,19 +262,44 @@ int extract_courses(char *raw_html, struct course_info *info_list, int *info_num
 		memcpy(temp_list[course_num].name,p+i,j-i);
 		int n =0;
 		//未交作业数   ">1</span>个未交作业</td>
+		n=0;
 		i = i + string_find(p+i,"个未交作业")-8;
+		while(p[i]!='>')
+		{
+			i = i-1;
+		}
+		i = i+1;
+		while(p[i]!='<')
+		{
+			n = 10*n + p[i]-'0';
+		}
 		//printf("i= %d\n",i);
-		n = p[i]-'0';
 		temp_list[course_num].unhanded_work_num = n;
 		//未读公告数   ">2</span>个未读公告</td
 		i = i + string_find(p+i,"个未读公告")-8;
 		//printf("i= %d\n",i);
-		n = p[i]-'0';
+		while(p[i]!='>')
+		{
+			i = i-1;
+		}
+		i = i+1;
+		while(p[i]!='<')
+		{
+			n = 10*n + p[i]-'0';
+		}
 		temp_list[course_num].unread_notice_num = n;
 		//新文件数     ">0</span>个新文件</td>
 		i = i + string_find(p+i,"个新文件")-8;
 		//printf("i= %d\n",i);
-		n = p[i]-'0';
+		while(p[i]!='>')
+		{
+			i = i-1;
+		}
+		i = i+1;
+		while(p[i]!='<')
+		{
+			n = 10*n + p[i]-'0';
+		}
 		temp_list[course_num].new_file_num = n;
 		
 		//printf("num: %d\n",course_num);

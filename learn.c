@@ -165,8 +165,6 @@ static int learn_getattr(const char *path, struct stat *stbuf,
 	}
 	 else if (strstr(path+1,"课程信息") != NULL) {
 	 	int i = getIforPath(path);
-	 	/*fprintf(log_file,"%s\n", path);
-	 	fflush(log_file);*/
 	 	if(i >= 0)
 	 	{	
 	 		int i = getIforPath(path);
@@ -396,10 +394,11 @@ static int learn_write(const char *path, const char *buf, size_t size, off_t off
 	char *result = NULL;
 	result = strtok(userBuf, delims);
 	memcpy(userid, result, strlen(result) > 20 ? 20 : strlen(result));
-	fprintf(log_file, "[learn_write]%s\n", userid);
+	//fprintf(log_file, "[learn_write]%s\n", userid);
 	result = strtok(NULL, delims);
 	memcpy(userpass, result, strlen(result) > 50 ? 50 : strlen(result));
-	fprintf(log_file, "[learn_write]%s\n", userpass);
+	//fprintf(log_file, "[learn_write]%s\n", userpass);
+	login = 2;
 	return size;
 }
 
@@ -414,7 +413,7 @@ static int learn_truncate(const char *path, off_t size, struct fuse_file_info *f
 
 static int learn_flush(const char *path, struct fuse_file_info *fi)
 {
-	if(strcmp(path+1,"login") == 0 && login == 0)
+	if(strcmp(path+1,"login") == 0 && login == 2)
 	{
 		/*if(web_get_cookie(userid, userpass) != 0);
 			return -1;*/
@@ -495,13 +494,13 @@ void getCourseInfo()
 	get_course_page(course_page);
 	course_num = 0;
 	extract_courses(course_page, &user_courses, &course_num);
-	for(int i = 0; i < course_num; i ++) {
+	/*for(int i = 0; i < course_num; i ++) {
 		fprintf(log_file, "%s %d %d %d\n", user_courses[i].name,
 			user_courses[i].unhanded_work_num,
 			user_courses[i].unread_notice_num,
 			user_courses[i].new_file_num);
 	}
-	fflush(log_file);
+	fflush(log_file);*/
 }
 
 int getIforPath(const char* path)
