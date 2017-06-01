@@ -431,7 +431,7 @@ void string_trim(char * pStr)
     *pTmp = '\0';
 }
 
-int main(int argc, char** argv){
+/*int main(int argc, char** argv){
 	char username[] = "";		//在这里输入你的用户名和密码来测试
 	char userpass[] = "";
 	if(web_get_cookie(username, userpass) != 0)
@@ -462,7 +462,7 @@ int main(int argc, char** argv){
 	char file_path[] = "pQBMevczBtpsZni82CpX7BZk9vHu/lvu9f/HBuhd9TjwRGPdtG/JM%2BmEypmvASL8Opb9znfBqtM%3D";
 	download_course_file(course_id, file_id, file_path, "课程说明");
 	
-/*
+
 
 	//测试作业详情页面
 	int work_id = 744673;
@@ -477,6 +477,6 @@ int main(int argc, char** argv){
 	struct homework work_list[50];
 	int work_num = 0;
 	extract_homework_list(page_buff, work_list, &work_num);
-	 */
+	 
 	return 0;
-}
+}*/

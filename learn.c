@@ -36,9 +36,13 @@
 #include <curl/easy.h>
 #include "web/webOps.h"
 #include "web/courDetail.h"
+#include "web/webOps.c"
+#include "web/courDetail.c"
 //#include <dirent.h>
 #include <errno.h>
+#include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 
 /*
  * Command line options
@@ -55,10 +59,7 @@ int userBufLen;
 char userid[20];
 char userpass[50];
 
-int courNum;
-char **courName;
-char *courInfo;
-int infoLen;
+int courInfoLen[50];
 
 int test;
 char *testBuf;
@@ -75,6 +76,8 @@ int *fileStatus;
 char **fileName;
 int downloadWords;
 
+int log;
+FILE *log_file;
 
 static struct options {
 	const char *filename;
@@ -98,12 +101,7 @@ static void *learn_init(struct fuse_conn_info *conn,
 	(void) conn;
 	cfg->kernel_cache = 1;
 	//test[0] = '0'; test[1] = '\0';
-	//login = 0;
-	courNum = 2;
-	courName = malloc(sizeof(char*)*2);
-	courName[0] = "cour0Name";
-	courName[1] = "cour1Name";
-	courInfo = "未交作业数：n\n未读公告数：n\n新文件数：n\n";
+	login = 0;
 
 	noticeNum = 2;
 	noticeTitle = malloc(sizeof(char*)*2);
@@ -127,12 +125,14 @@ static void *learn_init(struct fuse_conn_info *conn,
 	fileName[1] = "song1word";
 	downloadWords = 0;
 
-	infoLen = strlen(courInfo);
 	test = 0;
 	testBuf = "output:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
-	login = 1;
+	/*login = 1;
 	for(int i = 0; i < courNum; i++)
-		mkdir(courName[i], S_IFDIR | 0755);
+		mkdir(courName[i], S_IFDIR | 0755);*/
+
+	log = open("/home/mlf/桌面/log.txt", O_WRONLY);
+	log_file = fdopen(log, "a");
 	return NULL;
 }
 
@@ -146,11 +146,11 @@ static int learn_getattr(const char *path, struct stat *stbuf,
 	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
-	}/* else if (strcmp(path+1, options.filename) == 0) {
+	} /*else if (strcmp(path+1, options.filename) == 0) {
 		stbuf->st_mode = S_IFREG | 0444;
 		stbuf->st_nlink = 1;
 		stbuf->st_size = strlen(options.contents);
-	} */else if (strcmp(path+1, "login") == 0) {
+	}*/ else if (strcmp(path+1, "login") == 0) {
 		stbuf->st_mode = S_IFREG | 0666;
 		stbuf->st_nlink = 1;
 		stbuf->st_size = userBufLen;
@@ -162,9 +162,24 @@ static int learn_getattr(const char *path, struct stat *stbuf,
 		stbuf->st_nlink = 1;
 	}
 	 else if (strstr(path+1,"课程信息") != NULL) {
+	 	int i = getIforPath(path);
+	 	/*fprintf(log_file,"%s\n", path);
+	 	fflush(log_file);*/
+	 	if(i >= 0)
+	 	{	
+	 		int i = getIforPath(path);
+	 		char info[100];
+			sprintf(info,"未交作业数：%d\n未读公告数：%d\n新文件数：%d\n",
+				user_courses[i].unhanded_work_num, 
+				user_courses[i].unread_notice_num,
+				user_courses[i].new_file_num);
+			courInfoLen[i] = strlen(info);
+		}
+		else
+			i = 0;
 		stbuf->st_mode = S_IFREG | 0444;
 		stbuf->st_nlink = 1;
-		stbuf->st_size = infoLen;
+		stbuf->st_size = courInfoLen[i];
 	} else {
 		off = strstr(path+1,"/");
 		if(strstr(off+1, "/") == NULL) {
@@ -240,11 +255,13 @@ static int learn_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	char *off;
 	if(strcmp(path,"/") == 0)
 	{
+		//filler(buf, options.filename, NULL, 0, 0);
 		if(!login) {
 			filler(buf, "login", NULL, 0, 0);
 		} else {
-			for(int i = 0; i < courNum; i++)
-				filler(buf, courName[i], NULL, 0, 0);
+			getCourseInfo();
+			for(int i = 0; i < course_num; i++)
+				filler(buf, user_courses[i].name, NULL, 0, 0);
 		}
 	} else if(strstr(path+1,"/") == NULL){
 		filler(buf, "课程信息", NULL, 0, 0);
@@ -328,8 +345,15 @@ static int learn_read(const char *path, char *buf, size_t size, off_t offset,
 		memcpy(buf, userBuf, userBufLen);
 		size = userBufLen;
 	} else if (strstr(path, "课程信息") != NULL) {
-		size = infoLen;
-		memcpy(buf, courInfo, size);
+		int i = getIforPath(path);
+		char info[100];
+		sprintf(info,"未交作业数：%d\n未读公告数：%d\n新文件数：%d\n",
+			user_courses[i].unhanded_work_num, 
+			user_courses[i].unread_notice_num,
+			user_courses[i].new_file_num);
+
+		size = strlen(info); courInfoLen[i] = size;
+		memcpy(buf, info, size);
 		//return -ENOENT;
 	} else if(strstr(path, "文件信息") != NULL) {
 		char info[500];
@@ -370,8 +394,10 @@ static int learn_write(const char *path, const char *buf, size_t size, off_t off
 	char *result = NULL;
 	result = strtok(userBuf, delims);
 	memcpy(userid, result, strlen(result) > 20 ? 20 : strlen(result));
+	fprintf(log_file, "[learn_write]%s\n", userid);
 	result = strtok(NULL, delims);
 	memcpy(userpass, result, strlen(result) > 50 ? 50 : strlen(result));
+	fprintf(log_file, "[learn_write]%s\n", userpass);
 	return size;
 }
 
@@ -386,11 +412,18 @@ static int learn_truncate(const char *path, off_t size, struct fuse_file_info *f
 
 static int learn_flush(const char *path, struct fuse_file_info *fi)
 {
-	if(strcmp(path+1,"login") == 0)
+	if(strcmp(path+1,"login") == 0 && login == 0)
 	{
+		/*if(web_get_cookie(userid, userpass) != 0);
+			return -1;*/
+/*		if(log_file == NULL)
+			write(log, "testBuf\n", strlen("testBuf\n"));*/
+		int rst = web_get_cookie(userid, userpass);
+		if(rst < 0)
+			return 0;
 		login = 1;
-		for(int i = 0; i < courNum; i++)
-			mkdir(courName[i], S_IFDIR | 0755);
+		/*for(int i = 0; i < courNum; i++)
+			mkdir(courName[i], S_IFDIR | 0755);*/
 		/*if(chdir("..")==-1)
 		{
 			char* info = "Couldn't change current working directory.";
@@ -451,6 +484,32 @@ static void show_help(const char *progname)
 	       "    --contents=<s>      Contents \"learn\" file\n"
 	       "                        (default \"learn, World!\\n\")\n"
 	       "\n");
+}
+
+void getCourseInfo()
+{
+	char course_page[50000];
+	memset(course_page, 0 , 50000);
+	get_course_page(course_page);
+	course_num = 0;
+	extract_courses(course_page, &user_courses, &course_num);
+	for(int i = 0; i < course_num; i ++) {
+		fprintf(log_file, "%s %d %d %d\n", user_courses[i].name,
+			user_courses[i].unhanded_work_num,
+			user_courses[i].unread_notice_num,
+			user_courses[i].new_file_num);
+	}
+	fflush(log_file);
+}
+
+int getIforPath(const char* path)
+{
+	for(int i = 0; i < course_num; i++)
+	{
+		if(strstr(path, user_courses[i].name) != NULL)
+			return i;
+	}
+	return -1;
 }
 
 int main(int argc, char *argv[])/**/

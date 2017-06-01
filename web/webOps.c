@@ -2,6 +2,7 @@
 #include "webOps.h"
 
 char user_cookie[500];
+extern FILE* log_file;
 
 struct course_info user_courses[50];
 int course_num;
@@ -49,13 +50,20 @@ int web_get_cookie(char userid[], char userpass[]){
 	strcat(body, "&userpass=");
 	strcat(body, userpass);
 	strcat(body, "&submiy1: 登录");
+	fprintf(log_file, "[login uid]%s\n", userid);
+	fprintf(log_file, "[login upass]%s\n", userpass);
 
 	int res = send_post(URL, body, NULL, content, header);
+
+	if(log_file == NULL)
+		return -2;
+	//fprintf(log_file, "[HEADER]%s\n", header);
+	//fprintf(log_file, "[CONTENT]%s\n", content);
 	char cookies[500];
 	memset(cookies, 0, 500);
 	extract_cookies(header, cookies);
 	set_cookie(cookies);
-	printf("[COOKIES]: %s\n",cookies);
+	fprintf(log_file,"[COOKIES]: %s\n",cookies);
 	if(strstr(cookies,"THNSV2COOKIE") == NULL){
 		printf("无法获取COOKIE\n");
 		return -1;
