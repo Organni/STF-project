@@ -463,7 +463,7 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		};
 	*/
 	//printf("twl html: %s\n",raw_html);
- 	
+ 	//fprintf(log_file, "%s\n", "come into extract_homework_list");fflush(log_file);
 	struct homework temp_list[50];
 	memset(&temp_list, 0, sizeof(struct homework)*50);
 	int homework_num = 0; 
@@ -512,6 +512,8 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		j = i + string_find(p+i,"</a");
 		strncpy(temp_list[homework_num].title,p+i,j-i);
 		temp_list[homework_num].title[j-i] = '\0';
+		string_trim(temp_list[homework_num].title, temp_list[homework_num].title);
+		//fprintf(log_file, "[in the while loop]%s\n", temp_list[homework_num].title);fflush(log_file);
 		//printf("title: %s\n",temp_list[homework_num].title);
 		//start_time[20];     <td width="10%">2017-02-28</td>
 		i = i + string_find(p+i,"<td")+3;
@@ -546,13 +548,14 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		temp_size[j-i]='\0';
 		string_trim(temp_size,temp_list[homework_num].handin_size);
 		//printf("size: %s\n",temp_list[homework_num].handin_size);
-		
+		//fprintf(log_file, "%s\n", "before come in the homework page");fflush(log_file);
 		//进入作业页面
 
-		char page_buff[5000];
+		char page_buff[20000];
 		//printf("before\n");
 		memset(page_buff,0,sizeof(page_buff));
 		get_homework_detail_page(course_id, id, page_buff);
+		//fprintf(log_file, "%s\n", "get homework page is ok?");fflush(log_file);
 		//printf("after\n");
 		//printf("%s",page_buff);
 		char * q = page_buff;
@@ -566,6 +569,7 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		qj = qi + string_find(q+qi,"</textarea");
 		//printf("intro\n");
 		strncpy(temp_list[homework_num].intro,q+qi,qj-qi);
+		//fprintf(log_file, "[in the homework page]%s\n", temp_list[homework_num].intro);fflush(log_file);
 		//printf("intro: %s\n",temp_list[homework_num].intro);
 		//char appendix_name[100];	// 作业附件名称
 		//char appendix_path[100]; 	//  作业附件的file_path，可以从超链接得到	
@@ -579,7 +583,7 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		flag2 = qi + string_find(q+qi,"href");
 		if ((flag2>qi-1 &&flag2<qj)&&(flag1==qi-1||flag1>qj)) //
 		{
-			qi = qi + string_find(q+qi,"href=")+6; 
+			qi = qi + string_find(q+qi,"&filePath=")+strlen("&filePath="); 
 			qj = qi + string_find(q+qi,"\"");
 			strncpy(temp_list[homework_num].appendix_path,q+qi,qj-qi);
 			//printf("path: %s\n",temp_list[homework_num].appendix_path);
@@ -587,7 +591,9 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 			qj = qi + string_find(q+qi,"</a");
 			strncpy(temp_list[homework_num].appendix_name,q+qi,qj-qi);
 			//printf("name: %s\n",temp_list[homework_num].appendix_name);
-		}	
+		}
+
+		//fprintf(log_file, "%s\n", "there is ok?");fflush(log_file);	
 		
 		//char handin_content[1000];
 		//char handin_name[100];		// 提交的作业名称和file_path
@@ -605,23 +611,29 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 			strncpy(temp_list[homework_num].handin_content,q+qi,qj-qi);
 		}
 
+		//fprintf(log_file, "%s\n", "there1 is ok?");fflush(log_file);
+
 		qi = qi + string_find(q+qi,"上交作业附件")+4;
 		qi = qi + string_find(q+qi,"<td")+3;
 		qi = qi + string_find(q+qi,">")+1;
 		qj = qi + string_find(q+qi,"</td");
 		flag1 = qi + string_find(q+qi,"无相关文件");
 		flag2 = qi + string_find(q+qi,"href");
-		if ((flag2>qi-1 &&flag2<qj)&&(flag1==qi-1||flag1>qj)) //
-		{
-			qi = qi + string_find(q+qi,"href=")+6;
+		//fprintf(log_file, "%d %d %d %d\n", qi, qj, flag1, flag2);fflush(log_file);
+		if ((flag2>(qi-1) &&flag2<qj)&&(flag1==(qi-1)||flag1>qj)) //
+		{//fprintf(log_file, "%s\n", "come in if");fflush(log_file);
+			qi = qi + string_find(q+qi,"&filePath=")+strlen("&filePath="); 
 			qj = qi + string_find(q+qi,"\"");
+			//fprintf(log_file, "%d %d\n", qi, qj);
 			strncpy(temp_list[homework_num].handin_path,q+qi,qj-qi);
+			//fprintf(log_file, "%s\n", temp_list[homework_num].handin_path);fflush(log_file);
 			//printf("path: %s\n",temp_list[homework_num].handin_path);
 			qi = qi + string_find(q+qi,">")+1;
 			qj = qi + string_find(q+qi,"</a");
 			strncpy(temp_list[homework_num].handin_name,q+qi,qj-qi);
 			//printf("name: %s\n",temp_list[homework_num].handin_name);
-		}	
+		}
+		//fprintf(log_file, "%s\n", "after come in the homework page");fflush(log_file);	
 				
 		homework_num++;
 		//tail += head;

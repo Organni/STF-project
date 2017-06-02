@@ -81,6 +81,7 @@ char *defaultDownloadPath;
 
 int homework_list_num[courNumMax];
 struct homework h_list[courNumMax][50];
+int homeworkInfoLen = strlen("生效日期：\n截止日期：\n提交状态：\n上交作业附件大小：\n作业说明：\n\n上交作业内容：\n");
 
 static struct options {
 	const char *filename;
@@ -131,28 +132,20 @@ static int learn_getattr(const char *path, struct stat *stbuf,
 			 struct fuse_file_info *fi)
 {
 	(void) fi;
-	int res = 0;
+
 	char* off;
 	memset(stbuf, 0, sizeof(struct stat));
 	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
-	} /*else if (strcmp(path+1, options.filename) == 0) {
-		stbuf->st_mode = S_IFREG | 0444;
-		stbuf->st_nlink = 1;
-		stbuf->st_size = strlen(options.contents);
-	}*/ else if (strcmp(path+1, "login") == 0) {
+	} else if (strcmp(path+1, "login") == 0) {
 		stbuf->st_mode = S_IFREG | 0666;
 		stbuf->st_nlink = 1;
 		stbuf->st_size = userBufLen;
-	} /*else {
-		return lstat(path, stbuf);
-	}*/
-	 else if (strstr(path+1,"/") == NULL) {
+	} else if ((off = strstr(path+1,"/")) == NULL) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 1;
-	}
-	 else if (strstr(path+1,"课程信息") != NULL) {
+	} else if (strcmp(off+1,"课程信息") == 0) {
 	 	int i = getCourseIndexFromPath(path);
 	 	if(i >= 0)
 	 	{	
@@ -170,25 +163,25 @@ static int learn_getattr(const char *path, struct stat *stbuf,
 		stbuf->st_nlink = 1;
 		stbuf->st_size = courInfoLen[i];
 	} else {
-		off = strstr(path+1,"/");
-		if(strstr(off+1, "/") == NULL) {
+		if((strstr(off+1, "/")) == NULL) {
 			stbuf->st_mode = S_IFDIR | 0755;
 			stbuf->st_nlink = 1;
-		}
-		else {
-			if(strstr(off+1, "-未读") != NULL
-				|| strstr(off+1, "-已读") != NULL)
-			{
-				stbuf->st_mode = S_IFREG | 0444;
-				stbuf->st_nlink = 1;
-				stbuf->st_size = noticeLen ;
-				int i = getCourseIndexFromPath(path);
-				int j = getNoticeIndexFromPath(path, i);
-				if(i >= 0 && j >= 0)
-					stbuf->st_size += strlen(notice_list[i][j].publisher)
-							+ strlen(notice_list[i][j].time)
-							+ strlen(notice_list[i][j].content);
-			} else {
+		} else {
+			if(strncmp(off+1,"公告", strlen("公告")) == 0) {
+				if(strstr(off+1, "-未读") != NULL
+					|| strstr(off+1, "-已读") != NULL)
+				{
+					stbuf->st_mode = S_IFREG | 0444;
+					stbuf->st_nlink = 1;
+					stbuf->st_size = noticeLen ;
+					int i = getCourseIndexFromPath(path);
+					int j = getNoticeIndexFromPath(path, i);
+					if(i >= 0 && j >= 0)
+						stbuf->st_size += strlen(notice_list[i][j].publisher)
+								+ strlen(notice_list[i][j].time)
+								+ strlen(notice_list[i][j].content);
+				}
+			} else if(strncmp(off+1,"文件", strlen("文件")) == 0) {
 				off = strstr(off+1,"/");
 				if((off = strstr(off+1,"/")) == NULL) {
 					stbuf->st_mode = S_IFDIR | 0755;
@@ -214,38 +207,88 @@ static int learn_getattr(const char *path, struct stat *stbuf,
 					}
 					
 				} else {
-					stbuf->st_mode = S_IFREG | 0666;
-					stbuf->st_nlink = 1;
-					stbuf->st_size = strlen(defaultDownloadPath);
 					int i = getCourseIndexFromPath(path);
 					int j = getListIndexFromPath(path, i);
 					int k = getFileIndexFromPath(path, i, j);
-					if(i >= 0 && j >= 0 && k >= 0)
-					{
-						struct course_file *temp = file_lists[i][j].files;
-						if(temp[k].download_flag == 1)
-							stbuf->st_size = strlen(temp[k].save_path);
-						else
-							stbuf->st_size += strlen(temp[k].title);
+					if(strstr(path, "-未下载") != NULL){
+						stbuf->st_mode = S_IFREG | 0666;
+						stbuf->st_nlink = 1;
+						stbuf->st_size = strlen(defaultDownloadPath);
+						if(i >= 0 && j >= 0 && k >= 0)
+						{	//if(temp[k].download_flag == 0)
+							struct course_file *temp = file_lists[i][j].files;
+								stbuf->st_size += strlen(temp[k].title);
+						}
+					} else if(strstr(path, "-已下载") != NULL) {
+						if(i >= 0 && j >= 0 && k >= 0) {
+							struct course_file *temp = file_lists[i][j].files;
+							int res = lstat(temp[k].save_path, stbuf);
+							if (res == -1)
+								return -1;
+							return 0;
+						}
+					}
+				}
+			} else if(strncmp(off+1,"作业", strlen("作业")) == 0) {
+				off = strstr(off+1, "/");
+				if((off = strstr(off+1, "/")) == NULL) {
+					stbuf->st_mode = S_IFDIR | 0755;
+					stbuf->st_nlink = 1;
+				} else {
+					int i = getCourseIndexFromPath(path);
+					int j = getHomeworkIndexFromPath(path, i);
+					if(strstr(off+1,"作业信息") != NULL) {
+						stbuf->st_mode = S_IFREG | 0444;
+						stbuf->st_nlink = 1;
+						stbuf->st_size = homeworkInfoLen;
+						if(i >= 0 && j >= 0)
+						{
+							struct homework *h = &(h_list[i][j]);
+							stbuf->st_size += strlen(h->start_time) + strlen(h->end_time)
+											+ strlen(h->status) + strlen(h->handin_size)
+											+ strlen(h->intro) + strlen(h->handin_content);
+						}
+					} else if(strstr(off+1,"-附件未下载") != NULL) {
+						stbuf->st_mode = S_IFREG | 0666;
+						stbuf->st_nlink = 1;
+						stbuf->st_size = strlen(defaultDownloadPath);
+						if(i >= 0 && j >= 0)
+						{
+							struct homework *h = &(h_list[i][j]);
+							stbuf->st_size += strlen(h->appendix_name);
+						}
+					} else if(strstr(off+1,"-附件已下载") != NULL) {
+						if(i >= 0 && j >= 0) {
+							struct homework *h = &(h_list[i][j]);
+							int res = lstat(h->appendix_save_path, stbuf);
+							if (res == -1)
+								return -1;
+							return 0;
+						}
+					} else if(strstr(off+1,"-提交未下载") != NULL) {
+						stbuf->st_mode = S_IFREG | 0666;
+						stbuf->st_nlink = 1;
+						stbuf->st_size = strlen(defaultDownloadPath);
+						if(i >= 0 && j >= 0)
+						{
+							struct homework *h = &(h_list[i][j]);
+							stbuf->st_size += strlen(h->handin_name);
+						}
+					} else if(strstr(off+1,"-提交已下载") != NULL) {
+						if(i >= 0 && j >= 0) {
+							struct homework *h = &(h_list[i][j]);
+							int res = lstat(h->handin_save_path, stbuf);
+							if (res == -1)
+								return -1;
+							return 0;
+						}
 					}
 				}
 			}
-			
 		}
 	}
-/*	if((off = strstr(path+1,"/") ==)) {
-		stbuf->st_mode = S_IFDIR | 0755;
-		stbuf->st_nlink = 1;
-	}	else {
-		stbuf->st_mode = S_IFREG | 0444;
-		stbuf->st_nlink = 1;
-		stbuf->st_size = 1;
-	}*/
 
-	/*else
-		res = -ENOENT;*/
-
-	return res;
+	return 0;
 }
 
 static int learn_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
@@ -272,12 +315,12 @@ static int learn_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			for(int i = 0; i < course_num; i++)
 				filler(buf, user_courses[i].name, NULL, 0, 0);
 		}
-	} else if(strstr(path+1,"/") == NULL){
+	} else if((off = strstr(path+1,"/")) == NULL){
 		filler(buf, "课程信息", NULL, 0, 0);
 		filler(buf, "公告", NULL, 0, 0);
 		filler(buf, "文件", NULL, 0, 0);
 		filler(buf, "作业", NULL, 0, 0);
-	} else if(strstr(path+1,"公告") != NULL) {
+	} else if(strncmp(off+1,"公告", strlen("公告")) == 0) {
 		int i = getCourseIndexFromPath(path);
 		getNoticeInfo(i);
 		for(int j = 0; j < notice_num[i]; j++) {
@@ -290,9 +333,8 @@ static int learn_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			filler(buf, title, NULL, 0, 0);
 			//fprintf(log_file, "[notice %d add is ok]\n", j);fflush(log_file);
 		}
-	} else if(strstr(path+1,"文件") != NULL) {
+	} else if(strncmp(off+1,"文件", strlen("文件")) == 0) {
 		//fprintf(log_file, "[read addr]%s\n", path);fflush(log_file);
-		off = strstr(path+1,"/");
 		int i = getCourseIndexFromPath(path);
 		if((off = strstr(off+1,"/")) == NULL) {
 			getFileInfo(i);
@@ -315,116 +357,203 @@ static int learn_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 				strcat(name, "-已下载");
 			filler(buf, name, NULL, 0, 0);
 		}
-	} else if(strstr(path+1,"作业") != NULL) {
-		off = strstr(path+1,"/");
+	} else if(strncmp(off+1,"作业", strlen("作业")) == 0) {
 		int i = getCourseIndexFromPath(path);
 		if((off = strstr(off+1,"/")) == NULL) {
 			getHomeworkInfo(i);
-			/*for(int j = 0; j < file_list_num[i]; j++)
-				filler(buf, file_lists[i][j].name, NULL, 0, 0);*/
+			for(int j = 0; j < homework_list_num[i]; j++)
+				filler(buf, h_list[i][j].title, NULL, 0, 0);
+		} else {
+			filler(buf, "作业信息", NULL, 0, 0);
+			int j = getHomeworkIndexFromPath(path, i);
+			struct homework *h = &(h_list[i][j]);
+			if(strlen(h->appendix_name) != 0)
+			{
+				char name[200];
+				strcpy(name, h->appendix_name);
+				if(h->appendix_download_flag == 0)
+					strcat(name, "-附件未下载");
+				else
+					strcat(name, "-附件已下载");
+				filler(buf, name, NULL, 0, 0);
+			}
+			if(strlen(h->handin_name) != 0)
+			{
+				char name[200];
+				strcpy(name, h->handin_name);
+				if(h->handin_download_flag == 0)
+					strcat(name, "-提交未下载");
+				else
+					strcat(name, "-提交已下载");
+				filler(buf, name, NULL, 0, 0);
+			}		
 		}
 	}
 
-	
-	
-	//test[0] ++;
-	//filler(buf, test, NULL, 0, 0);
-	//return -ENOENT;
 
 	return 0;
 }
 
 static int learn_open(const char *path, struct fuse_file_info *fi)
 {
-	if (strcmp(path+1, options.filename) == 0)
-	{
-		if ((fi->flags & O_ACCMODE) != O_RDONLY)
-			return -EACCES;
-	}/* else if(strcmp(path+1, "login") == 0)
-	{
+	char *off; off = strstr(path+1,"/");
+	if(off == NULL) return 0;
+	if(strncmp(off+1,"文件", strlen("文件")) == 0) {
+		if(strstr(path, "-已下载") != NULL) {
+			int i = getCourseIndexFromPath(path);
+			int j = getListIndexFromPath(path, i);
+			int k = getFileIndexFromPath(path, i, j);
+			struct course_file *temp = file_lists[i][j].files;
+			int res = open(temp[k].save_path, O_RDONLY );
+			if(res == -1)
+				return res;
+			fi->fh = res;
+		}
+	} else if(strncmp(off+1,"作业", strlen("作业")) == 0) {
+		int i = getCourseIndexFromPath(path);
+		int j = getHomeworkIndexFromPath(path, i);
+		struct homework *h = &(h_list[i][j]);
+		if(strstr(off, "-附件已下载") != NULL) {
+			int res = open(h->appendix_save_path, O_RDONLY);
+			if(res == -1)
+				return res;
+			fi->fh = res;
+		} else if(strstr(off, "-提交已下载") != NULL) {
+			int res = open(h->handin_save_path, O_RDONLY);
+			if(res == -1)
+				return res;
+			fi->fh = res;
+		}
+	}
 
-	} else
-		return -ENOENT;*/
-
-	
 	return 0;
 }
 
 static int learn_read(const char *path, char *buf, size_t size, off_t offset,
 		      struct fuse_file_info *fi)
 {
-	size_t len;
 	(void) fi;
-	//size = 0;
-	/*if((strcmp(path+1, options.filename) == 0 )
-		|| strstr(path, options.filename) != NULL)
-	{
-		len = strlen(options.contents);
-		if (offset < len) {
-			if (offset + size > len)
-				size = len - offset;
-			memcpy(buf, options.contents + offset, size);
-		} else
-			size = 0;
-	} else */if (strcmp(path+1,"login") == 0) {
+	char *off;
+	if (strcmp(path+1,"login") == 0) {
 		memcpy(buf, userBuf, userBufLen);
 		size = userBufLen;
-	} else if (strstr(path, "课程信息") != NULL) {
-		int i = getCourseIndexFromPath(path);
-		char info[100];
-		sprintf(info,"未交作业数：%d\n未读公告数：%d\n新文件数：%d\n",
-			user_courses[i].unhanded_work_num, 
-			user_courses[i].unread_notice_num,
-			user_courses[i].new_file_num);
-
-		size = strlen(info); courInfoLen[i] = size;
-		memcpy(buf, info, size);
-		//return -ENOENT;
-	} else if(strstr(path, "文件信息") != NULL) {
-		int i = getCourseIndexFromPath(path);
-		int j = getListIndexFromPath(path, i);
-		int k = getFileIndexFromPath(path, i, j);
-		struct course_file *temp = file_lists[i][j].files;
-		char info[500];
-		sprintf(info, "简要说明：%s\n文件大小：%s\n上载时间：%s",
-			temp[k].intro, temp[k].file_size, temp[k].upload_time);
-		if(strstr(temp[k].status, "新文件") != NULL)
-			strcat(info,"\n新文件");
-		size = strlen(info);
-		memcpy(buf, info, size);
-	} else if(strstr(path, "-未下载") != NULL) {
-		char filePath[100];
-		strcpy(filePath, defaultDownloadPath);
-		int i = getCourseIndexFromPath(path);
-		int j = getListIndexFromPath(path, i);
-		int k = getFileIndexFromPath(path, i, j);
-		struct course_file *temp = file_lists[i][j].files;
-		strcat(filePath, temp[k].title);
-		size = strlen(filePath);
-		memcpy(buf, filePath, size);
-	} else if(strstr(path, "-已下载") != NULL) {
-		int i = getCourseIndexFromPath(path);
-		int j = getListIndexFromPath(path, i);
-		int k = getFileIndexFromPath(path, i, j);
-		struct course_file *temp = file_lists[i][j].files;
-		size = strlen(temp[k].save_path);
-		memcpy(buf, temp[k].save_path, size);
-	} else if(strstr(path, "-未读") != NULL
-				|| strstr(path, "-已读") != NULL)
-	{
-		int i = getCourseIndexFromPath(path);
-		int j = getNoticeIndexFromPath(path, i);
-		char content[3000];
-		sprintf(content,"发布者：%s\n发布时间：%s\n内容：\n%s\n",
-			notice_list[i][j].publisher, 
-			notice_list[i][j].time,
-			notice_list[i][j].content);
-		size = strlen(content);
-		memcpy(buf, content, size);
 	} else {
-		char *text; text = "file content download from learn";
-		size = strlen(text);
-		memcpy(buf, text, size);
+		off = strstr(path+1,"/");
+		if (strcmp(off+1, "课程信息") == 0) {
+			int i = getCourseIndexFromPath(path);
+			char info[100];
+			sprintf(info,"未交作业数：%d\n未读公告数：%d\n新文件数：%d\n",
+				user_courses[i].unhanded_work_num, 
+				user_courses[i].unread_notice_num,
+				user_courses[i].new_file_num);
+
+			size = strlen(info); courInfoLen[i] = size;
+			memcpy(buf, info, size);
+		} else if(strncmp(off+1,"公告", strlen("公告")) == 0) {
+			if(strstr(off, "-未读") != NULL || strstr(off, "-已读") != NULL)
+			{
+				int i = getCourseIndexFromPath(path);
+				int j = getNoticeIndexFromPath(path, i);
+				char content[3000];
+				sprintf(content,"发布者：%s\n发布时间：%s\n内容：\n%s\n",
+					notice_list[i][j].publisher, 
+					notice_list[i][j].time,
+					notice_list[i][j].content);
+				size = strlen(content);
+				memcpy(buf, content, size);
+			}
+		} else if(strncmp(off+1,"文件", strlen("文件")) == 0) {
+			off = strstr(off+1, "/"); off = strstr(off+1, "/"); off = strstr(off+1, "/");
+			int i = getCourseIndexFromPath(path);
+			int j = getListIndexFromPath(path, i);
+			int k = getFileIndexFromPath(path, i, j);
+			struct course_file *temp = file_lists[i][j].files;
+			if(strcmp(off+1, "文件信息") == 0) {
+				char info[500];
+				sprintf(info, "简要说明：%s\n文件大小：%s\n上载时间：%s",
+					temp[k].intro, temp[k].file_size, temp[k].upload_time);
+				if(strstr(temp[k].status, "新文件") != NULL)
+					strcat(info,"\n新文件");
+				size = strlen(info);
+				memcpy(buf, info, size);
+			} else if(strstr(path, "-未下载") != NULL) {
+				char filePath[100];
+				strcpy(filePath, defaultDownloadPath);
+				strcat(filePath, temp[k].title);
+				size = strlen(filePath);
+				memcpy(buf, filePath, size);
+			} else if(strstr(path, "-已下载") != NULL) {
+				int fd;
+				int res;
+				if(fi == NULL)
+					fd = open(temp[k].save_path, O_RDONLY);
+				else
+					fd = fi->fh;
+				if (fd == -1)
+					return -1;
+				res = pread(fd, buf, size, offset);
+				if (res == -1)
+					res = -1;
+				if(fi == NULL)
+					close(fd);
+				return res;
+			}
+		} else if(strncmp(off+1,"作业", strlen("作业")) == 0) {
+			off = strstr(off+1, "/"); off = strstr(off+1, "/");
+			int i = getCourseIndexFromPath(path);
+			int j = getHomeworkIndexFromPath(path, i);
+			struct homework *h = &(h_list[i][j]); 
+			if(strcmp(off+1, "作业信息") == 0) {
+				char info[5000];
+				sprintf(info, "生效日期：%s\n截止日期：%s\n提交状态：%s\n上交作业附件大小：%s\n作业说明：\n%s\n上交作业内容：\n%s",
+					h->start_time, h->end_time, h->status, h->handin_size, h->intro, h->handin_content);
+				size = strlen(info);
+				memcpy(buf, info, size);
+				//fprintf(log_file, "%d\n", size);fflush(log_file);
+			} else if(strstr(off+1,"-附件未下载") != NULL) {
+				char filePath[600];
+				strcpy(filePath, defaultDownloadPath);
+				strcat(filePath, h->appendix_name);
+				size = strlen(filePath);
+				memcpy(buf, filePath, size);
+			} else if(strstr(off+1,"-附件已下载") != NULL) {
+				int fd;
+				int res;
+				if(fi == NULL)
+					fd = open(h->appendix_save_path, O_RDONLY);
+				else
+					fd = fi->fh;
+				if (fd == -1)
+					return -1;
+				res = pread(fd, buf, size, offset);
+				if (res == -1)
+					res = -1;
+				if(fi == NULL)
+					close(fd);
+				return res;
+			} else if(strstr(off+1,"-提交未下载") != NULL) {
+				char filePath[200];
+				strcpy(filePath, defaultDownloadPath);
+				strcat(filePath, h->handin_name);
+				size = strlen(filePath);
+				memcpy(buf, filePath, size);
+			} else if(strstr(off+1,"-提交已下载") != NULL) {
+				int fd;
+				int res;
+				if(fi == NULL)
+					fd = open(h->handin_save_path, O_RDONLY);
+				else
+					fd = fi->fh;
+				if (fd == -1)
+					return -1;
+				res = pread(fd, buf, size, offset);
+				if (res == -1)
+					res = -1;
+				if(fi == NULL)
+					close(fd);
+				return res;
+			}
+		}
 	}
 	return size;
 }
@@ -445,17 +574,42 @@ static int learn_write(const char *path, const char *buf, size_t size, off_t off
 		memcpy(userpass, result, strlen(result) > 50 ? 50 : strlen(result));
 		//fprintf(log_file, "[learn_write]%s\n", userpass);
 		login = 2;
-	} else if(strstr(path,"-未下载") != NULL) {
-		int i = getCourseIndexFromPath(path);
-		int j = getListIndexFromPath(path, i);
-		int k = getFileIndexFromPath(path, i, j);
-		struct course_file *temp = file_lists[i][j].files;
-		strncpy(temp[k].save_path, buf + offset, size);
-		
-		temp[k].save_path[size - 1] = '\0';
-		fprintf(log_file, "[i give you]%s????\n", temp[k].save_path);fflush(log_file);
-		temp[k].download_flag = 1;
-		download_course_file(user_courses[i].id, temp[k].file_id, temp[k].file_path, temp[k].save_path);
+	} else {
+		char *off; off = strstr(path+1, "/");
+		if(strncmp(off+1,"文件", strlen("文件")) == 0) {
+			if(strstr(path,"-未下载") != NULL) {
+				int i = getCourseIndexFromPath(path);
+				int j = getListIndexFromPath(path, i);
+				int k = getFileIndexFromPath(path, i, j);
+				struct course_file *temp = file_lists[i][j].files;
+				strncpy(temp[k].save_path, buf + offset, size);
+				
+				temp[k].save_path[size - 1] = '\0';
+				//fprintf(log_file, "[i give you]%s????\n", temp[k].save_path);fflush(log_file);
+				temp[k].download_flag = 1;
+				download_course_file(user_courses[i].id, temp[k].file_id, temp[k].file_path, temp[k].save_path);
+			}
+		} else if(strncmp(off+1,"作业", strlen("作业")) == 0) {
+			if(strstr(off,"-附件未下载") != NULL) {
+				int i = getCourseIndexFromPath(path);
+				int j = getHomeworkIndexFromPath(path, i);
+				struct homework *h = &(h_list[i][j]); 
+				char *result = strtok(buf+offset, ".");
+				strcpy(h->appendix_save_path, result);
+				//fprintf(log_file, "[i give you]%s????\n", temp[k].save_path);fflush(log_file);
+				h->appendix_download_flag = 1;
+				download_course_file(user_courses[i].id, 0, h->appendix_path, h->appendix_save_path);
+			} else if(strstr(off,"-提交未下载") != NULL) {
+				int i = getCourseIndexFromPath(path);
+				int j = getHomeworkIndexFromPath(path, i);
+				struct homework *h = &(h_list[i][j]); 
+				char *result = strtok(buf+offset, ".");
+				strcpy(h->handin_save_path, result);
+				//fprintf(log_file, "[i give you]%s????\n", temp[k].save_path);fflush(log_file);
+				h->handin_download_flag = 1;
+				download_course_file(user_courses[i].id, 0, h->handin_path, h->handin_save_path);
+			}
+		}
 	}
 	return size;
 }
@@ -467,9 +621,12 @@ static int learn_truncate(const char *path, off_t size, struct fuse_file_info *f
 		return size;
 	else if(strstr(path,"-未下载") != NULL)
 		return size;
+	else if(strstr(path,"-附件未下载") != NULL)
+		return size;
+	else if(strstr(path,"-提交未下载") != NULL)
+		return size;
 	else
 		return -EINVAL;
-
 	return size;
 }
 
@@ -477,8 +634,6 @@ static int learn_flush(const char *path, struct fuse_file_info *fi)
 {
 	if(strcmp(path+1,"login") == 0 && login == 2)
 	{
-		/*if(web_get_cookie(userid, userpass) != 0);
-			return -1;*/
 		/*if(log_file == NULL)
 			write(log, "testBuf\n", strlen("testBuf\n"));*/
 		//fprintf(log_file, "%s\n", "flushing");
@@ -487,45 +642,9 @@ static int learn_flush(const char *path, struct fuse_file_info *fi)
 		if(rst < 0)
 			return 0;
 		login = 1;
-		/*for(int i = 0; i < courNum; i++)
-			mkdir(courName[i], S_IFDIR | 0755);*/
-		/*if(chdir("..")==-1)
-		{
-			char* info = "Couldn't change current working directory.";
-			userBufLen = strlen(info);
-			memcpy(userBuf, info, userBufLen);
-		}
-		else{
-			char* info = "changed current working directory.";
-			userBufLen = strlen(info);
-			memcpy(userBuf, info, userBufLen);
-		}*/
-	}	
-	/*userBufLen = strlen(userid);
-	memcpy(userBuf, userid, userBufLen);*/
-	/*userBufLen = strlen(userpass);
-	memcpy(userBuf, userpass, userBufLen);*/
+	}
 	return 0;
 }
-
-/*int learn_opendir(const char *path, struct fuse_file_info *fi)
-{
-	char tpath[100];
-	strcpy(tpath,"/home/mlf/桌面/fuse-3.0.2/build/example/STF-project");
-	strcat(tpath, path);
-	return opendir(tpath);
-}*/
-
-/*static int learn_mkdir(const char *path, mode_t mode)
-{
-	int res;
-
-	res = mkdir(path, mode);
-	if (res == -1)
-		return -errno;
-
-	return 0;
-}*/
 
 static struct fuse_operations learn_oper = {
 	.init           = learn_init,
@@ -643,14 +762,22 @@ void getHomeworkInfo(int i)
 	memset(page_buff, 0, sizeof(page_buff));
 	get_homework_page(user_courses[i].id, page_buff);
 	homework_list_num[i] = 0;
-	extract_file_lists(page_buff, h_list[i], &homework_list_num[i]);
-	fprintf(log_file, "[homework num!!!!     ]        %d\n", homework_list_num[i]);
+	extract_homework_list(page_buff, h_list[i], &homework_list_num[i]);
+	/*fprintf(log_file, "[homework num!!!!     ]        %d\n", homework_list_num[i]);
 	fflush(log_file);
 	for(int j = 0; j < homework_list_num[i]; j++)
 	{
 		fprintf(log_file, "[homework!!!!     ]        %s\n", h_list[i][j].title);
 	}
-	fflush(log_file);
+	fflush(log_file);*/
+}
+
+int getHomeworkIndexFromPath(const char* path, int courseIndex)
+{
+	for(int i = 0; i < homework_list_num[courseIndex]; i++)
+		if(strstr(path, h_list[courseIndex][i].title) != NULL)
+			return i;
+	return -1;
 }
 
 int main(int argc, char *argv[])/**/
