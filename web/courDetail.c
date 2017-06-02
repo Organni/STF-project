@@ -1,8 +1,10 @@
 #include "webOps.h"
 #include "courDetail.h"
 
-char *submit_form_elements[] = {"&old_filename=", "&errorURL=", "&returnURL=", "&newfilename=", "&post_id=", "&post_rec_id=",
-							     "&post_homewk_link=", "&file_unique_flag=", "&url_post=", "&css_name=", "&tmpl_name=", "&course_id=", "&module_id="};
+extern FILE* log_file;
+
+char *submit_form_elements[] = {"old_filename", "errorURL", "returnURL", "newfilename", "post_id", "post_rec_id",
+							     "post_homewk_link", "file_unique_flag", "url_post", "css_name", "tmpl_name", "course_id", "module_id"};
 
 void myReplace(char* a)
 {
@@ -781,38 +783,117 @@ int get_homework_submit_page(int course_id, int work_id, char* page_buff){
 	return 0;
 }
 
-int extract_submit_form(char *up_file_name, char *page_buff, char* form_buff){
+/*	获取上传用的表单
+	up_file_name   :  待上传文件名
+	page_buff         :  文件上传页面源码
+	form_buff	    :  上传表单
+*/
+struct curl_httppost* extract_submit_form(char *up_file_name, char *page_buff,char* local_file_name, char* form_ptr){
+	struct curl_httppost *formpost=NULL;  
+  	struct curl_httppost *lastptr=NULL;
 	// find form
 	char* ptr = strstr(page_buff, "<FORM id=\"F1\""), *next;
 	if(!ptr){
 		//fprintf(log_file, "[SUBMIT] no form in page_buff\n");
-		return -1;
+		return NULL;
 	}
+	char form_buff[500];
+	memset(form_buff, 0, 500);
+
 	// find saveDir
 	ptr = strstr(ptr, "value=\"") + strlen("value=\"");
 	next = strstr(ptr, "\"");
-	strcat(form_buff, "saveDir=");
-	strncat(form_buff, ptr, next - ptr);
+	strncpy(form_buff, ptr, next - ptr);
+	form_buff[next - ptr] = 0;
+	strcat(form_ptr,"saveDir=");
+	strcat(form_ptr, form_buff);
+	curl_formadd(&formpost,  
+               &lastptr,  
+               CURLFORM_COPYNAME, "saveDir",  
+               CURLFORM_COPYCONTENTS, form_buff,  
+               CURLFORM_END);
 	ptr = next;
 	// add filename
-	ptr = strstr(ptr, "value=\"") + strlen("value=\"");
-	next = strstr(ptr, "\"");
-	strcat(form_buff, "&filename=");
-	strcat(form_buff, up_file_name);
-	ptr = next;
+	curl_formadd(&formpost,  
+               &lastptr,  
+               CURLFORM_COPYNAME, "filename",  
+               CURLFORM_COPYCONTENTS,up_file_name,  
+               CURLFORM_END);
+	strcat(form_ptr,"&filename=");
+	strcat(form_ptr, up_file_name);
 	int i = 0;
 	for(;i < 13; i++){
-		ptr = strstr(ptr, "value=\"") + strlen("value=\"");
-		next = strstr(ptr, "\"");
-		strcat(form_buff, submit_form_elements[i]);
-		strncat(form_buff, ptr, next - ptr);
+		ptr = strstr(ptr, "value=") + strlen("value=\"");
+		next = strstr(ptr, ">")-1;
+		strncpy(form_buff, ptr, next - ptr);
+		form_buff[next - ptr] = 0;
+		if(i != 6){
+			curl_formadd(&formpost,  
+	               	&lastptr,  
+	               	CURLFORM_COPYNAME, submit_form_elements[i],  
+	               CURLFORM_COPYCONTENTS, form_buff,  
+	               CURLFORM_END);
+			strcat(form_ptr,"&");
+			strcat(form_ptr, submit_form_elements[i]);
+			strcat(form_ptr, "=");
+			strcat(form_ptr, form_buff);
+		}else{
+			curl_formadd(&formpost,  
+	               	&lastptr,  
+	               	CURLFORM_COPYNAME, submit_form_elements[i],  
+	               CURLFORM_COPYCONTENTS, up_file_name,  
+	               CURLFORM_END);
+			strcat(form_ptr,"&");
+			strcat(form_ptr, submit_form_elements[i]);
+			strcat(form_ptr, "=");
+			strcat(form_ptr, up_file_name);
+		}
+		
 		ptr = next;
 	}
+	curl_formadd(&formpost,  
+               &lastptr,  
+               CURLFORM_COPYNAME, "post_rec_homewk_detail",  
+               CURLFORM_COPYCONTENTS, "",  
+               CURLFORM_END);
+	curl_formadd(&formpost,  
+               &lastptr,  
+               CURLFORM_COPYNAME, "submit",  
+               CURLFORM_COPYCONTENTS, "提交",  
+               CURLFORM_END);
+	curl_formadd(&formpost,  
+               &lastptr,  
+               CURLFORM_COPYNAME, "sendfile",  
+               CURLFORM_FILE, local_file_name,  
+               CURLFORM_END);
+	strcat(form_ptr, "&post_rec_homewk_detail=&submit=提交");
+	return formpost;
+}
+
+int upload_homewk(struct curl_httppost* formpost, char* form_buff){
+	char URL[256] = "http://learn.tsinghua.edu.cn/uploadFile/uploadFile.jsp";
+	char URL2[256] = "http://learn.tsinghua.edu.cn/MultiLanguage/lesson/student/hom_wk_handin.jsp";
+	char header[5000];
+	char content[50000];
+	memset(header, 0, 5000);
+	memset(content, 0, 50000);
+
+	int rst = send_upload(URL, get_cookie(), header, content, formpost, NULL);
+	//printf("[UPLOADHEADER]%s\n", header);
+	//printf("[UPLOADCONTENT]%s\n",content);
+	memset(header, 0, 5000);
+	memset(content, 0, 50000);
+	rst = send_upload(URL2, get_cookie(), header, content, formpost, form_buff);
+
+	//printf("[UPLOADHEADER]%s\n", header);
+	//printf("[UPLOADCONTENT]%s\n",content);
+	return rst;
 }
 
 int main(int argc, char** argv){
 	char username[] = "2014011410";		//在这里输入你的用户名和密码来测试
 	char userpass[] = "jtnlyanf4838";
+	fileInit();
 	printf("[LOGGING]\n");
 	if(web_get_cookie(username, userpass) != 0)
 		return -1;
@@ -821,36 +902,36 @@ int main(int argc, char** argv){
 	
 
 	//测试通知提取
-	int course_id = 142241;				//使用你的课程序号
+	/*int course_id = 142241;				//使用你的课程序号
 	get_notice_page(course_id, page_buff);
 	struct course_notice notice_list[100];
 	int notice_num = 0;
 	extract_notice_list(page_buff, course_id, notice_list, &notice_num);
 	int i = 0;
 	for(; i < notice_num; i++)
-		printf("%s\n", notice_list[i].title);
+		printf("%s\n", notice_list[i].title);*/
 
 	//测试课程文件列表提取
-	struct file_list f_list[10];
+	/*struct file_list f_list[10];
 	int list_num = 0;
 	get_file_page(course_id, page_buff);
-	extract_file_lists(page_buff, f_list, &list_num);
+	extract_file_lists(page_buff, f_list, &list_num);*/
 
  
 	//测试课程文件下载
- 	course_id = ;
+ /*	course_id = ;
 	int file_id = 17407;
 	char file_path[] = "pQBMevczBtpsZni82CpX7BZk9vHu/lvu9f/HBuhd9TjwRGPdtG/JM%2BmEypmvASL8Opb9znfBqtM%3D";
-	download_course_file(course_id, file_id, file_path, "课程说明"); 
+	download_course_file(course_id, file_id, file_path, "课程说明"); */
 
 	
 
 
 	//测试作业详情页面
-	int work_id = 740753;
+	/*int work_id = 740753;
 	course_id = 142241;
 	memset(page_buff,0,200000);
-	get_homework_detail_page(course_id, work_id, page_buff);
+	get_homework_detail_page(course_id, work_id, page_buff);*/
 	//printf("[作业详情]%s\n", page_buff);
 
 	//测试作业提取
@@ -862,14 +943,22 @@ int main(int argc, char** argv){
 	extract_homework_list(page_buff, work_list, &work_num);*/
 
 	//测试作业上传
+	
 	int course_id = 142886, wk_id = 763013;
+	int rst = 0;
 	memset(page_buff, 0, sizeof(page_buff));
-	printf("[PAGE]before get\n");
 	get_homework_submit_page(course_id, wk_id, page_buff);
-	printf("[PAGE]%s\n",  page_buff);
-	char form_buff[5000];
+	char form_buff[50000];
 	memset(form_buff, 0, sizeof(form_buff));
-	extract_submit_form(page_buff, "newfile.txt",form_buff);
+	//printf("[page]%d\n%s\n", 0,page_buff);
 
+	struct curl_httppost *formpost = extract_submit_form( "log.txt",page_buff,"/home/jt/log.txt",form_buff);
+	printf("[FORM]%d\n%s\n", rst,form_buff);
+
+	/*FILE* file  = fopen("/home/jt/helloWeb","r");
+	if(!file)
+		printf("[UPLOAD]%s\n", strerror(errno));
+*/	rst = upload_homewk(formpost,form_buff);
+	printf("[UPLOAD]%d\n", rst);
 	return 0;
-}*/
+}
