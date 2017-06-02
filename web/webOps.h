@@ -5,6 +5,11 @@
 #include <curl/easy.h>
 #include <stdio.h>
 #include <memory.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <errno.h> 
 
 struct course_info {
 	char name[255];		// 课程名称
@@ -35,4 +40,5 @@ int send_download(char URL[], char cookies[], char* header, char* save_path);
 //find string in string, return the first start location or -1 if can not find
 int string_find(const char *pSrc, const char *pDst);
 
+int send_upload(char URL[], char cookies[], char* header,  char* content, struct curl_httppost* formpost, char* form_buff);
 #endif

@@ -110,7 +110,7 @@ int send_post(char URL[], char body[], char cookies[], char* content, char* head
 	printf("[error]%s\n",  curl_easy_strerror(rst));
 	//printf("%s\n",header);
 	//printf("%s\n",content);
- 	return 0;
+ 	return rst;
 }
 
 int send_get(char URL[], char cookies[], char* content, char* header){
@@ -186,15 +186,12 @@ int send_download(char URL[], char cookies[], char* header, char* save_path){
                   printf("cannot get a CURL\n");
 		return -1;
 	}
-	fprintf(log_file, "[DOWNLOADING]0ok\n");
-	fflush(log_file);
+
 	FILE* file = fopen(save_path,"w+");
 	if(file == NULL){
 		printf("[DownloadFail] cannot open file %s\n", save_path);
 		return -1;
 	}
-	fprintf(log_file, "[DOWNLOADING]1ok\n");
-	fflush(log_file);
  	// 设置属性 	
  	curl_easy_setopt(curl, CURLOPT_URL, URL);
  	curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
@@ -209,14 +206,53 @@ int send_download(char URL[], char cookies[], char* header, char* save_path){
 	if(cookies){
 		curl_easy_setopt(curl, CURLOPT_COOKIE, cookies);
 	}
-	fprintf(log_file, "[DOWNLOADING]2ok\n");
-	fflush(log_file);
 	curl_easy_perform(curl);	
 	curl_easy_cleanup(curl);
 	fclose(file);
 	//printf("%s\n",header);
 	//printf("%s\n",content);
  	return 0;
+}
+
+int send_upload(char URL[], char cookies[], char* header,  char* content, struct curl_httppost* formpost, char* form_buff){
+	CURL *curl = curl_easy_init();
+	if (NULL == curl)
+	{
+                  curl_global_cleanup(); 
+                  printf("cannot get a CURL\n");
+		return -1;
+	}
+
+ 	// 设置属性 	
+ 	curl_easy_setopt(curl, CURLOPT_URL, URL);
+ 	curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
+ 	//printf("[UPLOAD]setting opts\n" );
+ 	if(content){
+ 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, content);   
+ 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data); 
+ 	}
+ 	if(form_buff){
+ 		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, form_buff);
+ 	}
+	if(header){
+		curl_easy_setopt(curl, CURLOPT_HEADERDATA, header);   
+		curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, write_data); 
+	}
+
+	if(cookies){
+		curl_easy_setopt(curl, CURLOPT_COOKIE, cookies);
+	}
+	//printf("[UPLOAD]set opts\n" );
+	int rst = curl_easy_perform(curl);	
+	if(rst != 0){
+		printf("[UPLOAD]%s\n", curl_easy_strerror(rst));
+	}
+	curl_easy_cleanup(curl);
+	//printf("[UPLOAD]curl performed\n" );
+	//fclose(file);
+	//printf("%s\n",header);
+	//printf("%s\n",content);
+ 	return rst;
 }
 
 /*
@@ -333,6 +369,12 @@ int string_find(const char *pSrc, const char *pDst)
 
 void fileInit()
 {
-	int log = open("/home/mlf/桌面/log.txt", O_WRONLY);
+	int log = open("/home/jt/log.txt", O_WRONLY | O_CREAT);
+	if(log < 0) {
+		printf("[LOG_INIT]%s\n",  strerror(errno));
+	}
 	log_file = fdopen(log, "a");
+	if(!log_file){
+		printf("[LOG_INIT]%s\n",  strerror(errno));
+	}
 }
