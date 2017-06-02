@@ -902,7 +902,7 @@ int upload_homewk(struct curl_httppost* formpost, char* form_buff){
 	return rst;
 }
 
-int main(int argc, char** argv){
+/*int main(int argc, char** argv){
 	char username[] = "";		//在这里输入你的用户名和密码来测试
 	char userpass[] = "";
 	fileInit();
@@ -934,16 +934,16 @@ int main(int argc, char** argv){
  /*	course_id = ;
 	int file_id = 17407;
 	char file_path[] = "pQBMevczBtpsZni82CpX7BZk9vHu/lvu9f/HBuhd9TjwRGPdtG/JM%2BmEypmvASL8Opb9znfBqtM%3D";
-	download_course_file(course_id, file_id, file_path, "课程说明"); */
+	download_course_file(course_id, file_id, file_path, "课程说明"); 
 
 	
 
 
 	//测试作业详情页面
-	/*int work_id = 740753;
+	int work_id = 740753;
 	course_id = 142241;
 	memset(page_buff,0,200000);
-	get_homework_detail_page(course_id, work_id, page_buff);*/
+	get_homework_detail_page(course_id, work_id, page_buff);
 	//printf("[作业详情]%s\n", page_buff);
 
 	//测试作业提取
@@ -952,7 +952,7 @@ int main(int argc, char** argv){
 	get_homework_page(course_id, page_buff);
 	struct homework work_list[50];
 	int work_num = 0;
-	extract_homework_list(page_buff, work_list, &work_num);*/
+	extract_homework_list(page_buff, work_list, &work_num);
 
 	//测试作业上传
 	
@@ -970,7 +970,7 @@ int main(int argc, char** argv){
 	/*FILE* file  = fopen("/home/jt/helloWeb","r");
 	if(!file)
 		printf("[UPLOAD]%s\n", strerror(errno));
-*/	rst = upload_homewk(formpost,form_buff);
+	rst = upload_homewk(formpost,form_buff);
 	printf("[UPLOAD]%d\n", rst);
 	return 0;
-}
+}*/

@@ -369,7 +369,7 @@ int string_find(const char *pSrc, const char *pDst)
 
 void fileInit()
 {
-	int log = open("/home/jt/log.txt", O_WRONLY | O_CREAT);
+	int log = open("/home/mlf/桌面/log.txt", O_WRONLY);
 	if(log < 0) {
 		printf("[LOG_INIT]%s\n",  strerror(errno));
 	}
