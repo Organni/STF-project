@@ -39,7 +39,7 @@ size_t write_data(void * ptr, size_t size, size_t nmemb, void * stream)
 }*/
 
 int web_get_cookie(char userid[], char userpass[]){
-	char URL[] = "https://learn.tsinghua.edu.cn/MultiLanguage/lesson/teacher/loginteacher.jsp";
+	char URL[] = "http://learn.tsinghua.edu.cn/MultiLanguage/lesson/teacher/loginteacher.jsp";
 	char body[500] = "userid=";
 	char content[50000];
 	char header[2000];
@@ -49,10 +49,11 @@ int web_get_cookie(char userid[], char userpass[]){
 	strcat(body, "&userpass=");
 	strcat(body, userpass);
 	strcat(body, "&submiy1: 登录");
-
 	int res = send_post(URL, body, NULL, content, header);
+	printf("[LOGIN_POST]%s\n",curl_easy_strerror(res));
 	char cookies[500];
 	memset(cookies, 0, 500);
+	printf("[LOGIN_HEADER]%s\n",header);
 	extract_cookies(header, cookies);
 	set_cookie(cookies);
 	printf("[COOKIES]: %s\n",cookies);
@@ -89,12 +90,12 @@ int send_post(char URL[], char body[], char cookies[], char* content, char* head
 
 	}
 
-	curl_easy_perform(curl);	
+	int res = curl_easy_perform(curl);	
 	curl_easy_cleanup(curl);
 
 	//printf("%s\n",header);
 	//printf("%s\n",content);
- 	return 0;
+ 	return res;
 }
 
 int send_get(char URL[], char cookies[], char* content, char* header){
@@ -135,8 +136,13 @@ int extract_cookies(char header[], char cookies[]) {
 	char *token  = NULL;
 	int i  = 0;
 	token = strtok(header, delima);
-	for (; i < 4; i++)			// cookies are the 5th and 6th line in header
+	if(token == NULL)
+		return -1;
+	for (; i < 4; i++){		// cookies are the 5th and 6th line in header
 		token = strtok(NULL, delima);
+		if(token == NULL)
+		return -1;
+	}	
 	token = token + 12; 		// skip "Set-Cookie: "
 	strncat(cookies, token,strlen(token)-6);	//skip "path=/"
 	token =  strtok(NULL, delima);

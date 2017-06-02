@@ -1,6 +1,9 @@
 #include "webOps.h"
 #include "courDetail.h"
 
+char *submit_form_elements[] = {"&old_filename=", "&errorURL=", "&returnURL=", "&newfilename=", "&post_id=", "&post_rec_id=",
+							     "&post_homewk_link=", "&file_unique_flag=", "&url_post=", "&css_name=", "&tmpl_name=", "&course_id=", "&module_id="};
+
 int get_notice_page(int course_id, char* notice_page){
 	char URL[256] = "http://learn.tsinghua.edu.cn/MultiLanguage/public/bbs/getnoteid_student.jsp?course_id=";
 	char num_str[50];
@@ -673,13 +676,62 @@ void html_trim(char * strIn,char * strOut)
 	strOut[tail] = '\0';
 }
 
+int get_homework_submit_page(int course_id, int work_id, char* page_buff){
+	char URL[256] = "http://learn.tsinghua.edu.cn/MultiLanguage/lesson/student/hom_wk_submit.jsp?id=";
+	char num_str[50];
+	sprintf(num_str, "%d", work_id);
+	strcat(URL, num_str);
+	strcat(URL, "&course_id=");
+	sprintf(num_str, "%d", course_id);
+	strcat(URL, num_str);
+
+	//char header[500];
+
+	send_get(URL, get_cookie(), page_buff, NULL);
+
+	//printf("HEADER:%s\n",header);
+	//printf("CONTENT:%s\n",content);
+	//printf("page url: %d,%d\n",course_id,work_id);
+	//printf("page: %s\n",page_buff);
+	return 0;
+}
+
+int extract_submit_form(char *up_file_name, char *page_buff, char* form_buff){
+	// find form
+	char* ptr = strstr(page_buff, "<FORM id=\"F1\""), *next;
+	if(!ptr){
+		//fprintf(log_file, "[SUBMIT] no form in page_buff\n");
+		return -1;
+	}
+	// find saveDir
+	ptr = strstr(ptr, "value=\"") + strlen("value=\"");
+	next = strstr(ptr, "\"");
+	strcat(form_buff, "saveDir=");
+	strncat(form_buff, ptr, next - ptr);
+	ptr = next;
+	// add filename
+	ptr = strstr(ptr, "value=\"") + strlen("value=\"");
+	next = strstr(ptr, "\"");
+	strcat(form_buff, "&filename=");
+	strcat(form_buff, up_file_name);
+	ptr = next;
+	int i = 0;
+	for(;i < 13; i++){
+		ptr = strstr(ptr, "value=\"") + strlen("value=\"");
+		next = strstr(ptr, "\"");
+		strcat(form_buff, submit_form_elements[i]);
+		strncat(form_buff, ptr, next - ptr);
+		ptr = next;
+	}
+}
 
 int main(int argc, char** argv){
-	char username[] = "";		//在这里输入你的用户名和密码来测试
-	char userpass[] = "";
+	char username[] = "2014011410";		//在这里输入你的用户名和密码来测试
+	char userpass[] = "jtnlyanf4838";
+	printf("[LOGGING]\n");
 	if(web_get_cookie(username, userpass) != 0)
 		return -1;
-
+	printf("[LOGGED]\n");
 	char page_buff [200000];
 	
 /*
@@ -717,12 +769,22 @@ int main(int argc, char** argv){
 	//printf("[作业详情]%s\n", page_buff);
 */
 	//测试作业提取
-	int course_id = 142241;
+	/*int course_id = 142241;
 	memset(page_buff,0,200000);
 	get_homework_page(course_id, page_buff);
 	struct homework work_list[50];
 	int work_num = 0;
-	extract_homework_list(page_buff, work_list, &work_num);
+	extract_homework_list(page_buff, work_list, &work_num);*/
+
+	//测试作业上传
+	int course_id = 142886, wk_id = 763013;
+	memset(page_buff, 0, sizeof(page_buff));
+	printf("[PAGE]before get\n");
+	get_homework_submit_page(course_id, wk_id, page_buff);
+	printf("[PAGE]%s\n",  page_buff);
+	char form_buff[5000];
+	memset(form_buff, 0, sizeof(form_buff));
+	extract_submit_form(page_buff, "newfile.txt",form_buff);
 
 	return 0;
 }
