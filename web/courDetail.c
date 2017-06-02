@@ -4,6 +4,16 @@
 char *submit_form_elements[] = {"&old_filename=", "&errorURL=", "&returnURL=", "&newfilename=", "&post_id=", "&post_rec_id=",
 							     "&post_homewk_link=", "&file_unique_flag=", "&url_post=", "&css_name=", "&tmpl_name=", "&course_id=", "&module_id="};
 
+void myReplace(char* a)
+{
+	while(*a != '\0')
+	{
+		if(*a == '/')
+			*a = '-';
+		a ++;
+	}
+}
+
 int get_notice_page(int course_id, char* notice_page){
 	char URL[256] = "http://learn.tsinghua.edu.cn/MultiLanguage/public/bbs/getnoteid_student.jsp?course_id=";
 	char num_str[50];
@@ -22,13 +32,13 @@ int get_notice_page(int course_id, char* notice_page){
 	// get real URL
 	char *newURL = strstr(content, "http");
 	int i = strstr(newURL,"\"") - newURL;
-	memcpy(URL, newURL, i);
+	strncpy(URL, newURL, i);
 	URL[i] = '\0';
 	//printf("newURL : %s\n",URL);
 
 	// get real note page
 	send_get(URL, get_cookie(), content, NULL);
-	memcpy(notice_page, content, strlen(content));
+	strncpy(notice_page, content, strlen(content));
 	//printf("CONTENT:%s\n",content);
 	return 0;
 }
@@ -47,6 +57,7 @@ int get_notice_detail_page(int course_id, int notice_id, char *detail_page){
 	send_get(URL, get_cookie(),content, NULL);
 	//printf("after get before trim \n");
 	html_trim(content,detail_page);
+	string_trim(detail_page, detail_page);
 	//printf("CONTENT:%s\n",detail_page);
 	return 0;
 }
@@ -114,26 +125,32 @@ int extract_notice_list(char* raw_html, int course_id, struct course_notice *not
 			i = i+string_find(p+i,">")+1;
 		//printf("i= %d\n",i);
 		j = i + string_find(p+i,"</");
-		memcpy(temp_list[course_notice_num].title,p+i,j-i);
+		strncpy(temp_list[course_notice_num].title,p+i,j-i);
+		temp_list[course_notice_num].title[j-i] = '\0';
+		myReplace(temp_list[course_notice_num].title);
+
 		//publisher   height=25>柴成亮</td>
 		i = i + string_find(p+i,"<td")+3;
 		i = i + string_find(p+i,">")+1;
 		j = i + string_find(p+i,"</td");
 		//printf("i= %d\n",i);
-		memcpy(temp_list[course_notice_num].publisher,p+i,j-i);
+		strncpy(temp_list[course_notice_num].publisher,p+i,j-i);
+		temp_list[course_notice_num].publisher[j-i] = '\0';
 
 		//time   同上
 		i = i + string_find(p+i,"<td")+3;
 		i = i + string_find(p+i,">")+1;
 		j = i + string_find(p+i,"</td");
 		//printf("i= %d\n",i);
-		memcpy(temp_list[course_notice_num].time,p+i,j-i);
+		strncpy(temp_list[course_notice_num].time,p+i,j-i);
+		temp_list[course_notice_num].time[j-i] = '\0';
 		//status     同上
 		i = i + string_find(p+i,"<td")+3;
 		i = i + string_find(p+i,">")+1;
 		j = i + string_find(p+i,"</td");
 		//printf("i= %d\n",i);
-		memcpy(temp_list[course_notice_num].status,p+i,j-i);
+		strncpy(temp_list[course_notice_num].status,p+i,j-i);
+		temp_list[course_notice_num].status[j-i] = '\0';
 		//content
 		
 		get_notice_detail_page(course_id, id, temp_list[course_notice_num].content);
@@ -223,7 +240,7 @@ int extract_file_lists(char* raw_html, struct file_list *f_list, int* list_num){
 		i = string_find(p,")\">")+3;
 		j = i + string_find(p+i,"</td");
 		if(j-i>19)	printf("name too long");
-		memcpy(temp_list[file_list_num].name,p+i,j-i);
+		strncpy(temp_list[file_list_num].name,p+i,j-i);
 		//printf("name: %s\n",temp_list[file_list_num].name);
 		file_list_num++;
 		head = i + string_find(p+i,"NN_showImage");
@@ -231,7 +248,10 @@ int extract_file_lists(char* raw_html, struct file_list *f_list, int* list_num){
 	}
 	*list_num = file_list_num;
 	
-	
+	/*for(int i = 0; i < file_list_num; i++)
+		fprintf(log_file, "[extract_file_lists   ]   %s\n", temp_list[i].name);
+	fflush(log_file);*/
+
 	int k=0;
 	for(k=0;k<file_list_num;k++) //对每一个文件列表获取内容
 	{
@@ -257,7 +277,7 @@ int extract_file_lists(char* raw_html, struct file_list *f_list, int* list_num){
 		
 		//printf("%d\n",k);
 		//printf("flag: %d\n",flag);
-		
+		char temp_title[200];
 		while(head>=i && head<flag )
 		{
 			p = p+head+5;
@@ -268,46 +288,52 @@ int extract_file_lists(char* raw_html, struct file_list *f_list, int* list_num){
 			temp_list[k].files[course_file_num].file_id = course_file_num+1;
 			//printf("num: %d\n",course_file_num);
 			//file_path
-			i = i + string_find(p+i,"href=")+6;
-			j = i + string_find(p+i,"\"");
-			memcpy(temp_list[k].files[course_file_num].file_path,p+i,j-i);
+			i = i + string_find(p+i,"&filePath=")+strlen("&filePath=");
+			j = i + string_find(p+i,"&course_id=");
+			strncpy(temp_list[k].files[course_file_num].file_path,p+i,j-i);
 			//printf("path: %s\n",temp_list[k].files[course_file_num].file_path);
 			//printf("i= %d\n",i);
 			//title 	id=1740355" >讲稿01     </a>
 			i = i + string_find(p+i,">")+1;
 			j = i + string_find(p+i,"</a>");
-			char temp_title[100];
-			memcpy(temp_title,p+i,j-i);
+			memset(temp_title,0,sizeof(temp_title));
+			strncpy(temp_title,p+i,j-i);
+			temp_title[j-i] = '\0';
 			string_trim(temp_title,temp_list[k].files[course_file_num].title); //去除空格
+			//fprintf(log_file, "[in while loop]%s\n", temp_list[k].files[course_file_num].title);
 			//printf("title: %s\n",temp_list[k].files[course_file_num].title);
 			//printf("i= %d\n",i);
 			//intro   center">数学实验与建模概述</td>
 			i = i + string_find(p+i,"<td")+3;
 			i = i + string_find(p+i,">")+1;
 			j = i + string_find(p+i,"</td");
-			memcpy(temp_list[k].files[course_file_num].intro,p+i,j-i);
+			strncpy(temp_list[k].files[course_file_num].intro,p+i,j-i);
 			//printf("intro: %s\n",temp_list[k].files[course_file_num].intro);
 			//printf("i= %d\n",i);
 			//file_size   同上
 			i = i + string_find(p+i,"<td")+3;
 			i = i + string_find(p+i,">")+1;
 			j = i + string_find(p+i,"</td");
-			memcpy(temp_list[k].files[course_file_num].file_size,p+i,j-i);
+			strncpy(temp_list[k].files[course_file_num].file_size,p+i,j-i);
 			//printf("size: %s\n",temp_list[k].files[course_file_num].file_size);
 			//printf("i= %d\n",i);
 			//time    同上
 			i = i + string_find(p+i,"<td")+3;
 			i = i + string_find(p+i,">")+1;
 			j = i + string_find(p+i,"</td");
-			memcpy(temp_list[k].files[course_file_num].upload_time,p+i,j-i);
+			strncpy(temp_list[k].files[course_file_num].upload_time,p+i,j-i);
 			//printf("time: %s\n",temp_list[k].files[course_file_num].upload_time);
 			//printf("i= %d\n",i);
 			//status    同上
+
 			i = i + string_find(p+i,"<td")+3;
 			i = i + string_find(p+i,">")+1;
 			j = i + string_find(p+i,"</td");
-			char temp_status[50];
-			memcpy(temp_status,p+i,j-i);
+			//fprintf(log_file, "%s %d %d\n", "there is ok?",i,j);fflush(log_file);
+			char temp_status[200];
+			strncpy(temp_status,p+i,j-i);
+			temp_status[j-i] = '\0';
+			//fprintf(log_file, "[in the while loop]%s\n", temp_status);fflush(log_file);
 			string_trim(temp_status,temp_list[k].files[course_file_num].status);
 			//printf("status: %s\n",temp_list[k].files[course_file_num].status);
 			
@@ -321,11 +347,14 @@ int extract_file_lists(char* raw_html, struct file_list *f_list, int* list_num){
 		p = p + flag;
 		
 		temp_list[k].file_num = course_file_num;
+		//fprintf(log_file, "[in the loop]%d %d\n", k, course_file_num);fflush(log_file);
 	}
+
+	//fprintf(log_file, "%s\n", "come out the for loop");fflush(log_file);
 	
 	memcpy(f_list, temp_list, sizeof(struct file_list)*file_list_num);
 
-	printf("file_list end\n");
+	//printf("file_list end\n");
 	return 0;
 }
 
@@ -333,7 +362,9 @@ int extract_file_lists(char* raw_html, struct file_list *f_list, int* list_num){
      file_id 似乎并非必要的
 */
 int download_course_file(int course_id, int file_id, char* file_path, char* save_path){
-	char URL[256] = "http://learn.tsinghua.edu.cn/uploadFile/downloadFile_student.jsp?module_id=322&filePath=";
+	fprintf(log_file, "[DOWNLOAD]\ncid : %d\n fid : %d\n f_path : %s\ns_path : %s\n", course_id, file_id,file_path, save_path);
+	fflush(log_file);
+	char URL[512] = "http://learn.tsinghua.edu.cn/uploadFile/downloadFile_student.jsp?module_id=322&filePath=";
 	strcat(URL, file_path);
 	strcat(URL, "&course_id=");
 	char num_str[50];
@@ -344,10 +375,14 @@ int download_course_file(int course_id, int file_id, char* file_path, char* save
 	strcat(URL, num_str);
 
 	char header_buff[5000];
-	send_download(URL, get_cookie(), header_buff, save_path);
+	memset(header_buff,0,5000);
+	int rst = send_download(URL, get_cookie(), header_buff, save_path);
+	fprintf(log_file, "[POST]%d\n", rst);
+	fflush(log_file);
 	//printf("URL:%s\n", URL);
 	//printf("HEADER:%s\n", header_buff);
-
+	fprintf(log_file, "[HEADER]%s\n", header_buff);
+	fflush(log_file);
 	//从header中发现文件的后缀名
 	char *suffix_start = strstr(header_buff, "filename=\"");
 	char *suffix_end = strstr(suffix_start + 10, "\""); 		//"filename=""之后的引号位置，即文件名的结束
@@ -355,10 +390,13 @@ int download_course_file(int course_id, int file_id, char* file_path, char* save
 	if(suffix_start > suffix_end)				// "."的位置超过了文件名，说明原文件没有后缀名
 		return 0;
 	char new_path[255];
+	memset(new_path,0,255);
 	strcpy(new_path, save_path);
+	//fprintf(log_file,"[new_path]%sI bet there is a ...%s???\n", new_path, save_path);
+	//fflush(log_file);
 	strncat(new_path, suffix_start, suffix_end-suffix_start);
-	//printf("[new_path]%s\n", new_path);
 	rename(save_path, new_path);
+	strcpy(save_path, new_path);
 	return 0;
 }
 
@@ -475,7 +513,7 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 			//i = i+string_find(p+i,">")+1;
 		//printf("i= %d\n",i);
 		j = i + string_find(p+i,"</a");
-		memcpy(temp_list[homework_num].title,p+i,j-i);
+		strncpy(temp_list[homework_num].title,p+i,j-i);
 		temp_list[homework_num].title[j-i] = '\0';
 		//printf("title: %s\n",temp_list[homework_num].title);
 		//start_time[20];     <td width="10%">2017-02-28</td>
@@ -483,21 +521,22 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		i = i + string_find(p+i,">")+1;
 		j = i + string_find(p+i,"</td");
 		//printf("i= %d\n",i);
-		memcpy(temp_list[homework_num].start_time,p+i,j-i);
+		strncpy(temp_list[homework_num].start_time,p+i,j-i);
 		//printf("start: %s\n",temp_list[homework_num].start_time);
 		//char end_time[20];
 		i = i + string_find(p+i,"<td")+3;
 		i = i + string_find(p+i,">")+1;
 		j = i + string_find(p+i,"</td");
 		//printf("i= %d\n",i);
-		memcpy(temp_list[homework_num].end_time,p+i,j-i);
+		strncpy(temp_list[homework_num].end_time,p+i,j-i);
 		//printf("end: %s\n",temp_list[homework_num].end_time);
 		//char status[50];
 		i = i + string_find(p+i,"<td")+3;
 		i = i + string_find(p+i,">")+1;
 		j = i + string_find(p+i,"</td");
 		char temp_status[100];
-		memcpy(temp_status,p+i,j-i);
+		strncpy(temp_status,p+i,j-i);
+		temp_status[j-i]='\0';
 		string_trim(temp_status,temp_list[homework_num].status);
 		//printf("status: %s\n",temp_list[homework_num].status);
 		//char handin_size[20];		// 提交的作业大小
@@ -506,7 +545,8 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		j = i + string_find(p+i,"</td");
 		//printf("i= %d\n",i);
 		char temp_size[50];
-		memcpy(temp_size,p+i,j-i);
+		strncpy(temp_size,p+i,j-i);
+		temp_size[j-i]='\0';
 		string_trim(temp_size,temp_list[homework_num].handin_size);
 		//printf("size: %s\n",temp_list[homework_num].handin_size);
 		
@@ -528,7 +568,7 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		qi = qi + string_find(q+qi,">")+1;
 		qj = qi + string_find(q+qi,"</textarea");
 		//printf("intro\n");
-		memcpy(temp_list[homework_num].intro,q+qi,qj-qi);
+		strncpy(temp_list[homework_num].intro,q+qi,qj-qi);
 		//printf("intro: %s\n",temp_list[homework_num].intro);
 		//char appendix_name[100];	// 作业附件名称
 		//char appendix_path[100]; 	//  作业附件的file_path，可以从超链接得到	
@@ -544,11 +584,11 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		{
 			qi = qi + string_find(q+qi,"href=")+6; 
 			qj = qi + string_find(q+qi,"\"");
-			memcpy(temp_list[homework_num].appendix_path,q+qi,qj-qi);
+			strncpy(temp_list[homework_num].appendix_path,q+qi,qj-qi);
 			//printf("path: %s\n",temp_list[homework_num].appendix_path);
 			qi = qi + string_find(q+qi,">")+1;
 			qj = qi + string_find(q+qi,"</a");
-			memcpy(temp_list[homework_num].appendix_name,q+qi,qj-qi);
+			strncpy(temp_list[homework_num].appendix_name,q+qi,qj-qi);
 			//printf("name: %s\n",temp_list[homework_num].appendix_name);
 		}	
 		
@@ -565,7 +605,7 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 			//temp_list[homework_num].handin_content=NULL;
 		}else
 		{
-			memcpy(temp_list[homework_num].handin_content,q+qi,qj-qi);
+			strncpy(temp_list[homework_num].handin_content,q+qi,qj-qi);
 		}
 
 		qi = qi + string_find(q+qi,"上交作业附件")+4;
@@ -578,11 +618,11 @@ int extract_homework_list(char* raw_html, struct  homework *work_list, int* list
 		{
 			qi = qi + string_find(q+qi,"href=")+6;
 			qj = qi + string_find(q+qi,"\"");
-			memcpy(temp_list[homework_num].handin_path,q+qi,qj-qi);
+			strncpy(temp_list[homework_num].handin_path,q+qi,qj-qi);
 			//printf("path: %s\n",temp_list[homework_num].handin_path);
 			qi = qi + string_find(q+qi,">")+1;
 			qj = qi + string_find(q+qi,"</a");
-			memcpy(temp_list[homework_num].handin_name,q+qi,qj-qi);
+			strncpy(temp_list[homework_num].handin_name,q+qi,qj-qi);
 			//printf("name: %s\n",temp_list[homework_num].handin_name);
 		}	
 				
@@ -610,15 +650,60 @@ void string_trim(char * strIn,char * strOut)
 
     i = 0;
 
-    j = strlen(strIn) - 1;
+    j = strlen(strIn) - 1;	
 
     while(strIn[i]==' ' || strIn[i]=='\n' || strIn[i]=='\t' || strIn[i]=='\r')
         ++i;
 
-    while(strIn[i]==' ' || strIn[i]=='\n' || strIn[i]=='\t' || strIn[i]=='\r')
+    while(strIn[j]==' ' || strIn[j]=='\n' || strIn[j]=='\t' || strIn[j]=='\r')
         --j;
-    memcpy(strOut, strIn + i , j - i + 1);
+
+    if(j - i + 1 <= 0)
+    {
+    	strOut[0] = '\0';
+    	return;
+    }
+
+    strncpy(strOut, strIn + i , j - i + 1);
     strOut[j - i + 1] = '\0';
+
+    char temp[j-i+1];
+    memset(temp, 0, j-i+1);
+	char delims[] = "&nbsp;";
+	char *result = NULL;
+	result = strtok(strOut, delims);
+	if(result == NULL)
+		return;
+	while(result != NULL)
+	{
+		strcat(temp, result);
+		result = strtok(NULL, delims);
+	}
+	strcpy(strOut, temp);
+    /*char* off = strOut;
+    while((off = strstr(off, "&nbsp;")) != NULL)
+    {
+    	off[0] = ' ';
+    	strcpy(off + 1, off + 6);
+    }*/
+    /*off = strOut;
+    while((off = strstr(off+1, "&lsquo;")) != NULL)
+    {
+    	off[0] = '\'';
+    	memcpy(off, off + 7, strlen(off) - 7 + 1);
+    }
+    off = strOut;
+    while((off = strstr(off+1, "&rsquo;")) != NULL)
+    {
+    	off[0] = '\'';
+    	memcpy(off, off + 7, strlen(off) - 7 + 1);
+    }
+    off = strOut;
+    while((off = strstr(off+1, "&hellip;")) != NULL)
+    {
+    	off[0] = ' ';
+    	memcpy(off, off + 8, strlen(off) - 8 + 1);
+    }*/
 }
 
 //取出html格式
@@ -642,7 +727,7 @@ void html_trim(char * strIn,char * strOut)
 	j = string_find(p,"</td");
 	
 	printf("content_size: %d",j+2);
-	memcpy(temp_content,p,j+2);
+	strncpy(temp_content,p,j+2);
 	
 	
 	
@@ -657,7 +742,7 @@ void html_trim(char * strIn,char * strOut)
 		p = p+i+1;
 		if(j-i-1>0)
 		{
-			memcpy(temp1,p,j-i-1);
+			strncpy(temp1,p,j-i-1);
 			temp1[j-i-1]='\0';
 			string_trim(temp1,temp2);
 			length = strlen(temp2);
@@ -665,7 +750,7 @@ void html_trim(char * strIn,char * strOut)
 			{
 				temp2[length] = '\n';
 				length++ ;
-				memcpy(strOut+tail,temp2,length);
+				strncpy(strOut+tail,temp2,length);
 				tail = tail+length;
 			}
 		}
@@ -734,7 +819,7 @@ int main(int argc, char** argv){
 	printf("[LOGGED]\n");
 	char page_buff [200000];
 	
-/*
+
 	//测试通知提取
 	int course_id = 142241;				//使用你的课程序号
 	get_notice_page(course_id, page_buff);
@@ -767,7 +852,7 @@ int main(int argc, char** argv){
 	memset(page_buff,0,200000);
 	get_homework_detail_page(course_id, work_id, page_buff);
 	//printf("[作业详情]%s\n", page_buff);
-*/
+
 	//测试作业提取
 	/*int course_id = 142241;
 	memset(page_buff,0,200000);
@@ -787,4 +872,4 @@ int main(int argc, char** argv){
 	extract_submit_form(page_buff, "newfile.txt",form_buff);
 
 	return 0;
-}
+}*/
