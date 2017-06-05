@@ -103,7 +103,7 @@ int send_post(char URL[], char body[], char cookies[], char* content, char* head
 	
 
 	if(cookies){
-
+		curl_easy_setopt(curl, CURLOPT_COOKIE, cookies);
 	}
 
 	rst = curl_easy_perform(curl);	
@@ -138,7 +138,8 @@ int send_get(char URL[], char cookies[], char* content, char* header){
 		curl_easy_setopt(curl, CURLOPT_COOKIE, cookies);
 	}
 
-	curl_easy_perform(curl);	
+	int rst = curl_easy_perform(curl);	
+	printf("[error]%s\n",  curl_easy_strerror(rst));
 	curl_easy_cleanup(curl);
 
 	//printf("%s\n",header);
