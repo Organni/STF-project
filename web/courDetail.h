@@ -42,10 +42,14 @@ struct homework{
 	char handin_size[20];		// 提交的作业大小
 	char intro[1000];			// 作业说明
 	char appendix_name[100];	// 作业附件名称
-	char appendix_path[100]; 	//  作业附件的file_path，可以从超链接得到
+	char appendix_path[500]; 	//  作业附件的file_path，可以从超链接得到
+	int appendix_download_flag;
+	char appendix_save_path[255];
 	char handin_content[1000];
 	char handin_name[100];		// 提交的作业名称和file_path
-	char handin_path[100];
+	char handin_path[500];
+	int handin_download_flag;
+	char handin_save_path[255];
 };
 
 int get_notice_page(int course_id, char* notice_page);
