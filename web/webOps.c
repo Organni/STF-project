@@ -168,6 +168,7 @@ int extract_cookies(char header[], char cookies[]) {
 	return 0;
 }
 
+
 int get_course_page(char* page_content){
 	char URL[] = "http://learn.tsinghua.edu.cn/MultiLanguage/lesson/student/MyCourse.jsp?language=cn";
 	char header[500];
@@ -178,6 +179,7 @@ int get_course_page(char* page_content){
 	//printf("CONTENT: %s\n",page_content);
 	return 0;
 }
+
 
 int send_download(char URL[], char cookies[], char* header, char* save_path){
 	CURL *curl = curl_easy_init();
@@ -214,6 +216,7 @@ int send_download(char URL[], char cookies[], char* header, char* save_path){
 	//printf("%s\n",content);
  	return 0;
 }
+
 
 int send_upload(char URL[], char cookies[], char* header,  char* content, struct curl_httppost* formpost, char* form_buff){
 	CURL *curl = curl_easy_init();
